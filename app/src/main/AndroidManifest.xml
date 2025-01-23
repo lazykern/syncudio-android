@@ -7,6 +7,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
+    <queries>
+        <package android:name="com.dropbox.android" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -39,5 +43,22 @@
             android:name=".services.radio.RadioNotificationService"
             android:foregroundServiceType="mediaPlayback"
             android:stopWithTask="true" />
+
+        <activity
+            android:name="com.dropbox.core.android.AuthActivity"
+            android:exported="true"
+            android:configChanges="orientation|keyboard"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <data android:scheme="db-jgibk23zkucv2ec" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
