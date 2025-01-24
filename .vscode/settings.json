@@ -7,5 +7,6 @@
     "[plaintext]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    "js/ts.implicitProjectConfig.checkJs": true
+    "js/ts.implicitProjectConfig.checkJs": true,
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

@@ -20,6 +20,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -53,6 +55,7 @@ import io.github.zyrouge.symphony.ui.components.settings.ConsiderContributingTil
 import io.github.zyrouge.symphony.ui.components.settings.SettingsSimpleTile
 import io.github.zyrouge.symphony.ui.helpers.ViewContext
 import io.github.zyrouge.symphony.ui.view.settings.AppearanceSettingsViewRoute
+import io.github.zyrouge.symphony.ui.view.settings.CloudStorageSettingsViewRoute
 import io.github.zyrouge.symphony.ui.view.settings.GrooveSettingsViewRoute
 import io.github.zyrouge.symphony.ui.view.settings.HomePageSettingsViewRoute
 import io.github.zyrouge.symphony.ui.view.settings.MiniPlayerSettingsViewRoute
@@ -256,6 +259,18 @@ fun SettingsView(context: ViewContext, route: SettingsViewRoute) {
                         },
                         onClick = {
                             context.navController.navigate(UpdateSettingsViewRoute)
+                        },
+                    )
+                    HorizontalDivider()
+                    SettingsSimpleTile(
+                        icon = {
+                            Icon(Icons.Filled.Cloud, null)
+                        },
+                        title = {
+                            Text(context.symphony.t.CloudStorage)
+                        },
+                        onClick = {
+                            context.navController.navigate(CloudStorageSettingsViewRoute)
                         },
                     )
                 }

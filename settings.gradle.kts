@@ -18,4 +18,3 @@ rootProject.name = "Symphony"
 
 include(":app")
 include(":metaphony")
-include(":cloudsync")
