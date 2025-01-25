@@ -11,6 +11,7 @@ import com.dropbox.core.DbxRequestConfig
 import com.dropbox.core.android.Auth
 import com.dropbox.core.oauth.DbxCredential
 import com.dropbox.core.v2.DbxClientV2
+import com.dropbox.core.v2.files.Metadata
 import io.github.zyrouge.symphony.Symphony
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+import java.io.FileOutputStream
 
 class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
     private val applicationContext: Context get() = symphony.applicationContext
@@ -48,6 +50,12 @@ class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
         private const val CREDENTIAL_KEY = "credential"
         private const val TAG = "DropboxService"
     }
+
+    data class DropboxListFolderResult(
+        val entries: List<com.dropbox.core.v2.files.Metadata>,
+        val hasMore: Boolean,
+        val cursor: String?
+    )
 
     override fun onSymphonyActivityReady() {
         super.onSymphonyActivityReady()
@@ -196,5 +204,142 @@ class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
         dropboxClient = null
         sharedPreferences.edit().remove(CREDENTIAL_KEY).apply()
         _authState.value = DropboxAuthState.Unauthenticated
+    }
+
+    suspend fun listFolder(
+        path: String,
+        recursive: Boolean = false
+    ): Result<DropboxListFolderResult> = withContext(Dispatchers.IO) {
+        try {
+            val client = dropboxClient ?: return@withContext Result.failure(
+                Exception("Dropbox client not initialized")
+            )
+
+            Log.d(TAG, "Listing folder: $path (recursive: $recursive)")
+            val result = client.files()
+                .listFolderBuilder(path)
+                .withRecursive(recursive)
+                .start()
+            
+            return@withContext Result.success(
+                DropboxListFolderResult(
+                    entries = result.entries,
+                    hasMore = result.hasMore,
+                    cursor = result.cursor
+                )
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list folder: $path", e)
+            return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun listFolderContinue(cursor: String): Result<DropboxListFolderResult> = withContext(Dispatchers.IO) {
+        try {
+            val client = dropboxClient ?: return@withContext Result.failure(
+                Exception("Dropbox client not initialized")
+            )
+
+            Log.d(TAG, "Continuing folder listing with cursor: $cursor")
+            val result = client.files().listFolderContinue(cursor)
+            
+            return@withContext Result.success(
+                DropboxListFolderResult(
+                    entries = result.entries,
+                    hasMore = result.hasMore,
+                    cursor = result.cursor
+                )
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to continue listing folder", e)
+            return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun downloadFile(
+        dropboxPath: String,
+        localPath: String,
+        progressCallback: ((Long, Long) -> Unit)? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val client = dropboxClient ?: return@withContext Result.failure(
+                Exception("Dropbox client not initialized")
+            )
+
+            // Get file metadata first to know the size
+            Log.d(TAG, "Getting file metadata: $dropboxPath")
+            val metadata = client.files().getMetadata(dropboxPath)
+            if (metadata !is com.dropbox.core.v2.files.FileMetadata) {
+                return@withContext Result.failure(Exception("Not a file: $dropboxPath"))
+            }
+            val fileSize = metadata.size
+
+            Log.d(TAG, "Downloading file: $dropboxPath to $localPath (size: $fileSize bytes)")
+            FileOutputStream(localPath).use { outputStream ->
+                client.files().downloadBuilder(dropboxPath)
+                    .start()
+                    .download(outputStream) { processedBytes ->
+                        progressCallback?.invoke(processedBytes, fileSize)
+                    }
+            }
+            
+            Log.d(TAG, "Successfully downloaded file: $dropboxPath")
+            return@withContext Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to download file: $dropboxPath", e)
+            return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun uploadFile(
+        localPath: String,
+        dropboxPath: String,
+        progressCallback: ((Long, Long) -> Unit)? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val client = dropboxClient ?: return@withContext Result.failure(
+                Exception("Dropbox client not initialized")
+            )
+
+            val file = java.io.File(localPath)
+            if (!file.exists()) {
+                return@withContext Result.failure(Exception("Local file does not exist: $localPath"))
+            }
+
+            Log.d(TAG, "Uploading file: $localPath to $dropboxPath (size: ${file.length()} bytes)")
+            val inputStream = java.io.FileInputStream(file)
+            
+            inputStream.use { input ->
+                if (file.length() > 150 * 1024 * 1024) { // Files larger than 150MB
+                    // Use upload session for large files
+                    val sessionId = client.files().uploadSessionStart()
+                        .uploadAndFinish(input) { l -> progressCallback?.invoke(l, file.length()) }
+                        .sessionId
+
+                    val cursor = com.dropbox.core.v2.files.UploadSessionCursor(
+                        sessionId,
+                        file.length()
+                    )
+
+                    val commitInfo = com.dropbox.core.v2.files.CommitInfo.newBuilder(dropboxPath)
+                        .withMode(com.dropbox.core.v2.files.WriteMode.OVERWRITE)
+                        .build()
+
+                    client.files().uploadSessionFinish(cursor, commitInfo)
+                        .uploadAndFinish(input) { l -> progressCallback?.invoke(l, file.length()) }
+                } else {
+                    // Use simple upload for small files
+                    client.files().uploadBuilder(dropboxPath)
+                        .withMode(com.dropbox.core.v2.files.WriteMode.OVERWRITE)
+                        .uploadAndFinish(input) { l -> progressCallback?.invoke(l, file.length()) }
+                }
+            }
+
+            Log.d(TAG, "Successfully uploaded file: $dropboxPath")
+            return@withContext Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to upload file: $dropboxPath", e)
+            return@withContext Result.failure(e)
+        }
     }
 } 
