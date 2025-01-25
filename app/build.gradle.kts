@@ -121,6 +121,7 @@ dependencies {
     implementation(libs.lifecycle.runtime)
     implementation(libs.media)
     implementation(libs.okhttp3)
+    implementation(libs.appcompat)
     ksp(libs.room.compiler)
     implementation(libs.room.ktx)
     implementation(libs.room.runtime)

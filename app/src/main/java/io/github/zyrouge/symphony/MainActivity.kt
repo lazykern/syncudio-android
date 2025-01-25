@@ -50,6 +50,11 @@ class MainActivity : ComponentActivity() {
         gSymphony?.emitActivityPause()
     }
 
+    override fun onResume() {
+        super.onResume()
+        gSymphony?.emitActivityReady()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         gSymphony?.emitActivityDestroy()

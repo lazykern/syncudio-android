@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.zyrouge.symphony.services.AppMeta
 import io.github.zyrouge.symphony.services.Permissions
 import io.github.zyrouge.symphony.services.Settings
+import io.github.zyrouge.symphony.services.cloud.DropboxService
 import io.github.zyrouge.symphony.services.database.Database
 import io.github.zyrouge.symphony.services.groove.Groove
 import io.github.zyrouge.symphony.services.i18n.Translator
@@ -18,7 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class Symphony(application: Application) : AndroidViewModel(application), Symphony.Hooks {
+class Symphony(application: Application) : AndroidViewModel(application) {
     interface Hooks {
         fun onSymphonyReady() {}
         fun onSymphonyDestroy() {}
@@ -27,19 +28,36 @@ class Symphony(application: Application) : AndroidViewModel(application), Sympho
         fun onSymphonyActivityDestroy() {}
     }
 
+    val applicationContext = application.applicationContext
+    var closeApp: (() -> Unit)? = null
+    private var isReady = false
+
     val permission = Permissions(this)
     val settings = Settings(this)
     val database = Database(this)
     val groove = Groove(this)
     val radio = Radio(this)
     val translator = Translator(this)
+    val dropbox = DropboxService(this)
 
     var t by mutableStateOf(translator.getCurrentTranslation())
 
-    val applicationContext get() = getApplication<Application>().applicationContext
-    var closeApp: (() -> Unit)? = null
-    private var isReady = false
-    private var hooks = listOf(this, radio, groove)
+    private val hooks = listOf<Hooks>(
+        settings,
+        groove,
+        radio,
+        dropbox,
+        object : Hooks {
+            override fun onSymphonyReady() {
+                checkVersion()
+                viewModelScope.launch {
+                    translator.onChange { nTranslation ->
+                        t = nTranslation
+                    }
+                }
+            }
+        }
+    )
 
     internal fun emitReady() {
         if (isReady) {
@@ -64,15 +82,6 @@ class Symphony(application: Application) : AndroidViewModel(application), Sympho
 
     internal fun emitActivityDestroy() {
         notifyHooks { onSymphonyActivityDestroy() }
-    }
-
-    override fun onSymphonyReady() {
-        checkVersion()
-        viewModelScope.launch {
-            translator.onChange { nTranslation ->
-                t = nTranslation
-            }
-        }
     }
 
     override fun onCleared() {
