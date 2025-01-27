@@ -1,2 +1,1 @@
-Symphony is a lightweight, elegant music player that enhances your offline music experience. Supports Android 9 and later.
-
+Syncudio is a fork of Symphony music player, enhanced with cloud storage integration capabilities. It extends Symphony's elegant music player with the ability to access your music from cloud storage services. Based on Symphony by zyrouge. Supports Android 9 and later.

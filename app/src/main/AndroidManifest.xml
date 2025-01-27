@@ -19,11 +19,11 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Symphony"
+        android:theme="@style/Theme.Syncudio"
         tools:targetApi="tiramisu">
         <activity
             android:name=".MainActivity"
-            android:theme="@style/Theme.Symphony.SplashScreen"
+            android:theme="@style/Theme.Syncudio.SplashScreen"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTask"

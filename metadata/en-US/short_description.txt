@@ -1,1 +1,1 @@
-Offline music playback is now a breeze
+Elegant music player with cloud storage integration

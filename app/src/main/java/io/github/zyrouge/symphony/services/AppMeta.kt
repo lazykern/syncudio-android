@@ -10,7 +10,7 @@ import org.json.JSONObject
 
 @Suppress("ConstPropertyName")
 object AppMeta {
-    const val appName = "Symphony"
+    const val appName = "Syncudio"
     const val author = "Zyrouge"
     const val githubRepositoryOwner = "zyrouge"
     const val githubRepositoryName = "symphony"

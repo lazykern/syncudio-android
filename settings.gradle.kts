@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Symphony"
+rootProject.name = "Syncudio"
 
 include(":app")
 include(":metaphony")

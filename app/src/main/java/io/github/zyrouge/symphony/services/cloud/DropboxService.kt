@@ -46,7 +46,7 @@ class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
 
     companion object {
         private const val DROPBOX_APP_KEY = "jgibk23zkucv2ec"
-        private const val DROPBOX_CLIENT_IDENTIFIER = "Symphony Music Player"
+        private const val DROPBOX_CLIENT_IDENTIFIER = "Syncudio Music Player"
         private const val CREDENTIAL_KEY = "credential"
         private const val TAG = "DropboxService"
     }
@@ -342,4 +342,4 @@ class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
             return@withContext Result.failure(e)
         }
     }
-} 
+}
