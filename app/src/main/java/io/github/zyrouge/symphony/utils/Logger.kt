@@ -19,4 +19,8 @@ object Logger {
         append("\nError: ${throwable.message}")
         append("\nStack trace: ${throwable.stackTraceToString()}")
     }.toString()
+
+    fun debug(tag: String, message: String, error: Throwable? = null) {
+        Log.d(TAG, "[$tag] $message", error)
+    }
 }
