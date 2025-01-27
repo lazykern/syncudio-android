@@ -306,8 +306,8 @@ class Settings(private val symphony: Symphony) : Symphony.Hooks {
         enumEntries<NowPlayingLyricsLayout>(),
         NowPlayingLyricsLayout.ReplaceArtwork,
     )
-    val artistTagSeparators = StringSetEntry("artist_tag_separators", setOf(";", "/", ",", "+"))
-    val genreTagSeparators = StringSetEntry("genre_tag_separators", setOf(";", "/", ",", "+"))
+    val artistTagSeparators = StringSetEntry("artist_tag_separators", setOf(";", ","))
+    val genreTagSeparators = StringSetEntry("genre_tag_separators", setOf(";", ","))
     val miniPlayerTextMarquee = BooleanEntry("mini_player_text_marquee", true)
     val mediaFolders = object : Entry<Set<Uri>>("media_folders") {
         override fun getValueInternal() = getSharedPreferences().getStringSet(key, null)
