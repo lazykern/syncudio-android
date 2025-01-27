@@ -10,10 +10,17 @@
     <img src="./media/screenshots.png" width="100%">
 </p>
 
-## Why?
+## About
 
-Why was this created? As I was getting into offline music, most of the popular good-looking music players did not support filename/path based sorting, which is what I really needed to keep my music organized. So I must have forked them and added it right? I could have done that but, I felt like trying out Kotlin and Compose, so I ended up making my own.
+Syncudio is a modified version of [Symphony](https://github.com/zyrouge/symphony), extending the elegant music player with cloud storage integration capabilities. This fork enables you to access and play your music files stored in cloud services while maintaining Symphony's core features.
 
-## License
+## Copyright and License
 
-[AGPL-3.0](./LICENSE)
+- Original Work: Symphony © 2022 [zyrouge](https://github.com/zyrouge)
+- Modifications: © 2024 Syncudio contributors
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License (AGPL-3.0) as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+The complete source code is available on [GitHub](https://github.com/lazykern/syncudio-android).
+
+Full license text: [AGPL-3.0](./LICENSE)
