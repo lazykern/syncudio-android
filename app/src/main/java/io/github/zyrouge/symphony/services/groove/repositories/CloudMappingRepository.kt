@@ -1,0 +1,85 @@
+package io.github.zyrouge.symphony.services.groove.repositories
+
+import io.github.zyrouge.symphony.Symphony
+import io.github.zyrouge.symphony.services.groove.CloudFolderMapping
+import io.github.zyrouge.symphony.utils.Logger
+import io.github.zyrouge.symphony.utils.SimplePath
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import java.util.concurrent.ConcurrentHashMap
+
+class CloudMappingRepository(private val symphony: Symphony) {
+    private val cache = ConcurrentHashMap<String, CloudFolderMapping>()
+    private val _all = MutableStateFlow<List<String>>(emptyList())
+    val all = _all.asStateFlow()
+    private val _count = MutableStateFlow(0)
+    val count = _count.asStateFlow()
+
+    private fun emitCount() = _count.update {
+        cache.size
+    }
+
+    private fun emitAll() = _all.update {
+        cache.values.map { it.id }
+    }
+
+    suspend fun fetch() {
+        try {
+            val mappings = symphony.database.cloudMappings.getAll()
+            cache.clear()
+            mappings.forEach { mapping ->
+                cache[mapping.id] = mapping
+            }
+            emitAll()
+            emitCount()
+        } catch (err: Exception) {
+            Logger.error("CloudMappingRepository", "fetch failed", err)
+        }
+    }
+
+    suspend fun add(localPath: String, cloudPath: String, provider: String) {
+        val mapping = CloudFolderMapping(
+            id = CloudFolderMapping.generateId(localPath, cloudPath),
+            localPath = localPath,
+            cloudPath = cloudPath,
+            provider = provider,
+            lastSync = System.currentTimeMillis()
+        )
+        symphony.database.cloudMappings.insert(mapping)
+        cache[mapping.id] = mapping
+        emitAll()
+        emitCount()
+    }
+
+    suspend fun remove(id: String) {
+        symphony.database.cloudMappings.delete(id)
+        cache.remove(id)
+        emitAll()
+        emitCount()
+    }
+
+    fun get(id: String) = cache[id]
+
+    fun isPathMapped(path: SimplePath): Boolean {
+        return cache.values.any { mapping -> 
+            path.pathString.startsWith(mapping.localPath)
+        }
+    }
+
+    fun getMappingForPath(path: SimplePath): CloudFolderMapping? {
+        return cache.values.find { mapping ->
+            path.pathString.startsWith(mapping.localPath)
+        }
+    }
+
+    fun getCloudPath(path: SimplePath): String? {
+        val mapping = getMappingForPath(path) ?: return null
+        val relativePath = path.pathString.removePrefix(mapping.localPath)
+        return "${mapping.cloudPath}/$relativePath".trimEnd('/')
+    }
+
+    companion object {
+        private const val TAG = "CloudMappingRepository"
+    }
+} 

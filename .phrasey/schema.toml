@@ -765,3 +765,6 @@ name = "MinSongDurationFilter"
 
 [[keys]]
 name = "CloudStorage"
+
+[[keys]]
+name = "CloudMappings"

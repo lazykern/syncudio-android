@@ -4,6 +4,7 @@ import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.services.groove.repositories.AlbumArtistRepository
 import io.github.zyrouge.symphony.services.groove.repositories.AlbumRepository
 import io.github.zyrouge.symphony.services.groove.repositories.ArtistRepository
+import io.github.zyrouge.symphony.services.groove.repositories.CloudMappingRepository
 import io.github.zyrouge.symphony.services.groove.repositories.GenreRepository
 import io.github.zyrouge.symphony.services.groove.repositories.PlaylistRepository
 import io.github.zyrouge.symphony.services.groove.repositories.SongRepository
@@ -22,6 +23,7 @@ class Groove(private val symphony: Symphony) : Symphony.Hooks {
         ALBUM_ARTIST,
         GENRE,
         PLAYLIST,
+        CLOUD_MAPPING,
     }
 
     val coroutineScope = CoroutineScope(Dispatchers.Default)
@@ -34,6 +36,7 @@ class Groove(private val symphony: Symphony) : Symphony.Hooks {
     val albumArtist = AlbumArtistRepository(symphony)
     val genre = GenreRepository(symphony)
     val playlist = PlaylistRepository(symphony)
+    val cloudMapping = CloudMappingRepository(symphony)
     val hash = HashManager(symphony)
 
     private suspend fun fetch() {
@@ -41,6 +44,7 @@ class Groove(private val symphony: Symphony) : Symphony.Hooks {
             awaitAll(
                 async { exposer.fetch() },
                 async { playlist.fetch() },
+                async { cloudMapping.fetch() },
             )
         }.join()
         // Start computing hashes after scan completes

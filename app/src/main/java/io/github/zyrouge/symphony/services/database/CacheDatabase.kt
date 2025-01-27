@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.AutoMigrationSpec
+import androidx.sqlite.db.SupportSQLiteDatabase
 import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.services.database.store.SongCacheStore
 import io.github.zyrouge.symphony.services.groove.Song
