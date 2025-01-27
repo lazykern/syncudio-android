@@ -5,9 +5,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -20,6 +21,7 @@ import io.github.zyrouge.symphony.services.cloud.DropboxAuthState
 import io.github.zyrouge.symphony.ui.components.IconButtonPlaceholder
 import io.github.zyrouge.symphony.ui.components.TopAppBarMinimalTitle
 import io.github.zyrouge.symphony.ui.components.settings.SettingsSideHeading
+import io.github.zyrouge.symphony.ui.components.settings.SettingsSimpleTile
 import io.github.zyrouge.symphony.ui.helpers.ViewContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,109 +62,70 @@ fun CloudStorageSettingsView(context: ViewContext) {
                     SettingsSideHeading("Dropbox")
                     when (authState) {
                         is DropboxAuthState.Unauthenticated -> {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                onClick = { context.symphony.dropbox.startAuthentication() }
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text("Connect to Dropbox")
+                            SettingsSimpleTile(
+                                icon = {
                                     Icon(Icons.Default.CloudOff, null)
+                                },
+                                title = {
+                                    Text("Connect to Dropbox")
+                                },
+                                onClick = {
+                                    context.symphony.dropbox.startAuthentication()
                                 }
-                            }
+                            )
                         }
                         is DropboxAuthState.InProgress -> {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text("Connecting to Dropbox...")
+                            SettingsSimpleTile(
+                                icon = {
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                },
+                                title = {
+                                    Text("Connecting to Dropbox...")
                                 }
-                            }
+                            )
                         }
                         is DropboxAuthState.Authenticated -> {
                             val account = (authState as DropboxAuthState.Authenticated).account
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Column {
-                                            Text(
-                                                account.name.displayName,
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            Text(
-                                                account.email,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                        }
-                                        Icon(Icons.Default.CloudDone, null)
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    OutlinedButton(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = { context.symphony.dropbox.logout() }
-                                    ) {
-                                        Icon(Icons.Default.Logout, null)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Disconnect")
-                                    }
+                            SettingsSimpleTile(
+                                icon = {
+                                    Icon(Icons.Default.CloudDone, null)
+                                },
+                                title = {
+                                    Text(account.name.displayName)
+                                },
+                                subtitle = {
+                                    Text(account.email)
                                 }
-                            }
+                            )
+                            HorizontalDivider()
+                            SettingsSimpleTile(
+                                icon = {
+                                    Icon(Icons.AutoMirrored.Filled.Logout, null)
+                                },
+                                title = {
+                                    Text("Disconnect")
+                                },
+                                onClick = {
+                                    context.symphony.dropbox.logout()
+                                }
+                            )
                         }
                         is DropboxAuthState.Error -> {
                             val error = (authState as DropboxAuthState.Error).error
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                ),
-                                onClick = { context.symphony.dropbox.startAuthentication() }
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                ) {
-                                    Text(
-                                        "Failed to connect to Dropbox",
-                                        style = MaterialTheme.typography.titleMedium,
-                                    )
-                                    Text(
-                                        error.message ?: "Unknown error",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
+                            SettingsSimpleTile(
+                                icon = {
+                                    Icon(Icons.Default.Error, null)
+                                },
+                                title = {
+                                    Text("Failed to connect to Dropbox")
+                                },
+                                subtitle = {
+                                    Text(error.message ?: "Unknown error")
+                                },
+                                onClick = {
+                                    context.symphony.dropbox.startAuthentication()
                                 }
-                            }
+                            )
                         }
                     }
                 }
