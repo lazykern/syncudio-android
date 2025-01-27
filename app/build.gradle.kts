@@ -129,7 +129,6 @@ dependencies {
     implementation(libs.dropbox.android)
     implementation(libs.security.crypto)
     implementation(libs.datastore.preferences)
-    implementation(libs.blake3jni)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
