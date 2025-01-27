@@ -14,9 +14,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
@@ -129,7 +131,7 @@ class MediaExposer(private val symphony: Symphony) {
                 && cached.dateModified == lastModified
                 && (cached.coverFile?.let { cycle.artworkCacheUnused.contains(it) } != false)
         val song = when {
-            cacheHit -> cached
+            cacheHit -> cached!!
             else -> Song.parse(path, file, cycle.songParseOptions)
         }
         if (song.duration.milliseconds < symphony.settings.minSongDuration.value.seconds) {
