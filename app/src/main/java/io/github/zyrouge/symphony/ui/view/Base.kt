@@ -31,8 +31,6 @@ import io.github.zyrouge.symphony.ui.view.settings.NowPlayingSettingsView
 import io.github.zyrouge.symphony.ui.view.settings.NowPlayingSettingsViewRoute
 import io.github.zyrouge.symphony.ui.view.settings.PlayerSettingsView
 import io.github.zyrouge.symphony.ui.view.settings.PlayerSettingsViewRoute
-import io.github.zyrouge.symphony.ui.view.settings.UpdateSettingsView
-import io.github.zyrouge.symphony.ui.view.settings.UpdateSettingsViewRoute
 import io.github.zyrouge.symphony.ui.view.settings.CloudStorageSettingsView
 import io.github.zyrouge.symphony.ui.view.settings.CloudStorageSettingsViewRoute
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -105,9 +103,6 @@ fun BaseView(symphony: Symphony, activity: MainActivity) {
                 }
                 baseComposable<PlayerSettingsViewRoute> {
                     PlayerSettingsView(context)
-                }
-                baseComposable<UpdateSettingsViewRoute> {
-                    UpdateSettingsView(context)
                 }
                 baseComposable<CloudStorageSettingsViewRoute> {
                     CloudStorageSettingsView(context)
