@@ -6,7 +6,7 @@
     "entities": [
       {
         "tableName": "songs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `date` TEXT, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `dateModified` INTEGER NOT NULL, `size` INTEGER NOT NULL, `coverFile` TEXT, `uri` TEXT NOT NULL, `path` TEXT NOT NULL, `blake3_hash` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `date` TEXT, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `dateModified` INTEGER NOT NULL, `size` INTEGER NOT NULL, `coverFile` TEXT, `uri` TEXT NOT NULL, `path` TEXT NOT NULL, `blake3Hash` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -147,8 +147,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "blake3_hash",
-            "columnName": "blake3_hash",
+            "fieldPath": "blake3Hash",
+            "columnName": "blake3Hash",
             "affinity": "TEXT",
             "notNull": false
           }

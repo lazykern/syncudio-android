@@ -46,7 +46,7 @@ data class Song(
     val coverFile: String?,
     val uri: Uri,
     val path: String,
-    val blake3_hash: String? = null,
+    val blake3Hash: String? = null,
 ) {
     data class ParseOptions(
         val symphony: Symphony,
@@ -179,7 +179,7 @@ data class Song(
                 coverFile = coverFile,
                 uri = file.uri,
                 path = path.pathString,
-                blake3_hash = null,
+                blake3Hash = null,
             )
         }
 
@@ -256,7 +256,7 @@ data class Song(
                 coverFile = coverFile,
                 uri = file.uri,
                 path = path.pathString,
-                blake3_hash = null,
+                blake3Hash = null,
             )
         }
 
