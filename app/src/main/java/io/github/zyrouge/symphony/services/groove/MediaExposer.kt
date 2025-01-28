@@ -126,6 +126,8 @@ class MediaExposer(private val symphony: Symphony) {
         val pathString = path.pathString
         uris[pathString] = file.uri
         val lastModified = file.lastModified
+
+        // Regular local file handling
         val cached = cycle.songCache[pathString]
         val cacheHit = cached != null
                 && cached.dateModified == lastModified

@@ -117,6 +117,7 @@ dependencies {
     implementation(libs.core)
     implementation(libs.core.splashscreen)
     implementation(libs.fuzzywuzzy)
+    implementation(libs.gson)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.lifecycle.runtime)
     implementation(libs.media)

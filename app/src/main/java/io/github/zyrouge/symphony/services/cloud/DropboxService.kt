@@ -13,6 +13,7 @@ import com.dropbox.core.oauth.DbxCredential
 import com.dropbox.core.v2.DbxClientV2
 import com.dropbox.core.v2.files.Metadata
 import io.github.zyrouge.symphony.Symphony
+import io.github.zyrouge.symphony.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import java.io.FileOutputStream
+import java.io.File
 
 class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
     private val applicationContext: Context get() = symphony.applicationContext
@@ -340,6 +342,71 @@ class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to upload file: $dropboxPath", e)
             return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun downloadMetadataFile(): String? = withContext(Dispatchers.IO) {
+        try {
+            Logger.debug(TAG, "Start download metadata")
+            
+            // Wait for authentication state to be Authenticated
+            var attempts = 0
+            while ((_authState.value == DropboxAuthState.Unauthenticated || _authState.value == DropboxAuthState.InProgress) && attempts < 30) {
+                Logger.debug(TAG, "Waiting for authentication... (attempt ${attempts + 1})")
+                delay(1000) // Wait for 1 second
+                attempts++
+            }
+
+            if ((_authState.value == DropboxAuthState.Unauthenticated || _authState.value == DropboxAuthState.InProgress)) {
+                Logger.debug(TAG, "Authentication timeout - current state: ${_authState.value}")
+                return@withContext null
+            }
+
+            val client = dropboxClient
+            if (client == null) {
+                Logger.debug(TAG, "Dropbox client is null after authentication")
+                return@withContext null
+            }
+            
+            Logger.debug(TAG, "Getting client done, proceeding with download")
+            val metadataPath = "/Syncudio/metadata/tracks.json"
+
+            // Create a temporary file to store the metadata
+            val tempFile = File.createTempFile("tracks", ".json")
+            try {
+                client.files().download(metadataPath)
+                    .download(FileOutputStream(tempFile))
+                val content = tempFile.readText()
+                Logger.debug(TAG, "Successfully downloaded metadata file")
+                return@withContext content
+            } finally {
+                tempFile.delete()
+            }
+        } catch (e: Exception) {
+            Logger.error(TAG, "Failed to download metadata file", e)
+            return@withContext null
+        }
+    }
+
+    suspend fun uploadMetadataFile(content: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val client = dropboxClient ?: return@withContext false
+            val metadataPath = "/Syncudio/metadata/tracks.json"
+
+            // Create a temporary file to upload
+            val tempFile = File.createTempFile("tracks", ".json")
+            try {
+                tempFile.writeText(content)
+                client.files().uploadBuilder(metadataPath)
+                    .withMode(com.dropbox.core.v2.files.WriteMode.OVERWRITE)
+                    .uploadAndFinish(tempFile.inputStream())
+                return@withContext true
+            } finally {
+                tempFile.delete()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to upload metadata file", e)
+            return@withContext false
         }
     }
 }
