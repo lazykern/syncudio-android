@@ -8,10 +8,22 @@ import java.time.LocalDate
 
 class RoomConvertors {
     @TypeConverter
-    fun serializeUri(value: Uri) = value.toString()
+    fun fromLocalDate(value: LocalDate?): String? = value?.toString()
 
     @TypeConverter
-    fun deserializeUri(value: String) = Uri.parse(value)
+    fun toLocalDate(value: String?): LocalDate? = value?.let { LocalDate.parse(it) }
+
+    @TypeConverter
+    fun fromUri(value: Uri?): String? = value?.toString()
+
+    @TypeConverter
+    fun toUri(value: String?): Uri? = value?.let { Uri.parse(it) }
+
+    @TypeConverter
+    fun fromStringSet(value: Set<String>?): String? = value?.joinToString("|")
+
+    @TypeConverter
+    fun toStringSet(value: String?): Set<String> = value?.split("|")?.toSet() ?: emptySet()
 
     @TypeConverter
     fun serializeStringSet(value: Set<String>) = Json.encodeToString(value)
@@ -24,10 +36,4 @@ class RoomConvertors {
 
     @TypeConverter
     fun deserializeStringList(value: String) = Json.decodeFromString<List<String>>(value)
-
-    @TypeConverter
-    fun serializeLocalDate(value: LocalDate) = value.toString()
-
-    @TypeConverter
-    fun deserializeLocalDate(value: String): LocalDate = LocalDate.parse(value)
 }

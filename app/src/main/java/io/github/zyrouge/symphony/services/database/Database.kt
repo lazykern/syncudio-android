@@ -11,6 +11,7 @@ class Database(symphony: Symphony) {
     val artworkCache = ArtworkCacheStore(symphony)
     val lyricsCache = LyricsCacheStore(symphony)
     val songCache get() = cache.songs()
+    val cloudTrackCache get() = cache.cloudTracks()
     val playlists get() = persistent.playlists()
     val cloudMappings get() = persistent.cloudMappings()
 }
