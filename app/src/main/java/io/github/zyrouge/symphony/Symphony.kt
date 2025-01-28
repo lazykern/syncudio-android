@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.zyrouge.symphony.services.AppMeta
 import io.github.zyrouge.symphony.services.Permissions
 import io.github.zyrouge.symphony.services.Settings
+import io.github.zyrouge.symphony.services.cloud.Cloud
 import io.github.zyrouge.symphony.services.cloud.DropboxService
 import io.github.zyrouge.symphony.services.database.Database
 import io.github.zyrouge.symphony.services.groove.Groove
@@ -38,6 +39,7 @@ class Symphony(application: Application) : AndroidViewModel(application) {
     val groove = Groove(this)
     val radio = Radio(this)
     val translator = Translator(this)
+    val cloud = Cloud(this)
     val dropbox = DropboxService(this)
 
     var t by mutableStateOf(translator.getCurrentTranslation())
@@ -46,6 +48,7 @@ class Symphony(application: Application) : AndroidViewModel(application) {
         settings,
         groove,
         radio,
+        cloud,
         dropbox,
         object : Hooks {
             override fun onSymphonyReady() {

@@ -33,7 +33,7 @@ import io.github.zyrouge.symphony.utils.ActivityUtils
 import io.github.zyrouge.symphony.ui.helpers.ViewContext
 import kotlinx.coroutines.launch
 import io.github.zyrouge.symphony.ui.components.DropboxFolderPickerDialog
-import io.github.zyrouge.symphony.services.groove.CloudFolderMapping
+import io.github.zyrouge.symphony.services.cloud.CloudFolderMapping
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -43,7 +43,7 @@ import java.util.Locale
 fun CloudStorageSettingsView(context: ViewContext) {
     val scrollState = rememberScrollState()
     val authState by context.symphony.dropbox.authState.collectAsState()
-    val mappings by context.symphony.groove.cloudMapping.all.collectAsState()
+    val mappings by context.symphony.cloud.mapping.all.collectAsState()
     var showAddMappingDialog by remember { mutableStateOf(false) }
     var mappingToDelete: CloudFolderMapping? by remember { mutableStateOf(null) }
     val coroutineScope = rememberCoroutineScope()
@@ -186,7 +186,7 @@ fun CloudStorageSettingsView(context: ViewContext) {
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             mappings.forEach { mappingId ->
-                                context.symphony.groove.cloudMapping.get(mappingId)?.let { mapping ->
+                                context.symphony.cloud.mapping.get(mappingId)?.let { mapping ->
                                     CloudMappingCard(
                                         context = context,
                                         mapping = mapping,
@@ -235,7 +235,7 @@ fun CloudStorageSettingsView(context: ViewContext) {
                 TextButton(
                     onClick = {
                         coroutineScope.launch {
-                            context.symphony.groove.cloudMapping.remove(mapping.id)
+                            context.symphony.cloud.mapping.remove(mapping.id)
                             mappingToDelete = null
                         }
                     },
@@ -261,7 +261,7 @@ fun CloudStorageSettingsView(context: ViewContext) {
             context = context,
             onDismiss = { showAddMappingDialog = false },
             onAdd = { localPath, cloudPath ->
-                context.symphony.groove.cloudMapping.add(
+                context.symphony.cloud.mapping.add(
                     localPath = localPath,
                     cloudPath = cloudPath,
                     provider = "dropbox"
@@ -496,7 +496,7 @@ private fun AddCloudMappingDialog(
                         error = null
                         coroutineScope.launch {
                             try {
-                                context.symphony.groove.cloudMapping.add(
+                                context.symphony.cloud.mapping.add(
                                     localPath = localPath,
                                     cloudPath = cloudPath,
                                     provider = "dropbox"

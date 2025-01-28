@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import io.github.zyrouge.symphony.services.groove.CloudFolderMapping
+import io.github.zyrouge.symphony.services.cloud.CloudFolderMapping
 
 @Dao
 interface CloudFolderMappingStore {

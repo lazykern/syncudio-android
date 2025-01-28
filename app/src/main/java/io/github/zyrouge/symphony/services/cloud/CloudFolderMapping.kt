@@ -1,4 +1,4 @@
-package io.github.zyrouge.symphony.services.groove
+package io.github.zyrouge.symphony.services.cloud
 
 import androidx.compose.runtime.Immutable
 import androidx.room.Entity
@@ -18,4 +18,4 @@ data class CloudFolderMapping(
     companion object {
         fun generateId(localPath: String, cloudPath: String) = "$localPath:$cloudPath".hashCode().toString()
     }
-}
+} 

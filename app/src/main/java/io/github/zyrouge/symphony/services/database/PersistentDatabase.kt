@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.services.database.store.CloudFolderMappingStore
 import io.github.zyrouge.symphony.services.database.store.PlaylistStore
-import io.github.zyrouge.symphony.services.groove.CloudFolderMapping
+import io.github.zyrouge.symphony.services.cloud.CloudFolderMapping
 import io.github.zyrouge.symphony.services.groove.Playlist
 import io.github.zyrouge.symphony.utils.RoomConvertors
 

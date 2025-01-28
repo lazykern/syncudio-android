@@ -1,7 +1,7 @@
-package io.github.zyrouge.symphony.services.groove.repositories
+package io.github.zyrouge.symphony.services.cloud.repositories
 
 import io.github.zyrouge.symphony.Symphony
-import io.github.zyrouge.symphony.services.groove.CloudFolderMapping
+import io.github.zyrouge.symphony.services.cloud.CloudFolderMapping
 import io.github.zyrouge.symphony.utils.Logger
 import io.github.zyrouge.symphony.utils.SimplePath
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +34,7 @@ class CloudMappingRepository(private val symphony: Symphony) {
             emitAll()
             emitCount()
         } catch (err: Exception) {
-            Logger.error("CloudMappingRepository", "fetch failed", err)
+            Logger.error(TAG, "fetch failed", err)
         }
     }
 
@@ -95,6 +95,14 @@ class CloudMappingRepository(private val symphony: Symphony) {
         val mapping = getMappingForPath(path) ?: return null
         val relativePath = path.pathString.removePrefix(mapping.localPath)
         return "${mapping.cloudPath}/$relativePath".trimEnd('/')
+    }
+
+    fun reset() {
+        cache.clear()
+        _all.update {
+            emptyList()
+        }
+        emitCount()
     }
 
     companion object {

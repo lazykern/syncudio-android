@@ -528,5 +528,4 @@ private fun Groove.Kind.label(context: ViewContext) = when (this) {
     Groove.Kind.ALBUM_ARTIST -> context.symphony.t.AlbumArtists
     Groove.Kind.GENRE -> context.symphony.t.Genres
     Groove.Kind.PLAYLIST -> context.symphony.t.Playlists
-    Groove.Kind.CLOUD_MAPPING -> context.symphony.t.CloudMappings
 }
