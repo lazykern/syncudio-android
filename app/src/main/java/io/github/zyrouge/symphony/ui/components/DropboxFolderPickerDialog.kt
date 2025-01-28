@@ -120,7 +120,7 @@ fun DropboxFolderPickerDialog(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Content area with loading, error, or folder list
                 Box(
@@ -206,7 +206,7 @@ fun DropboxFolderPickerDialog(
                                         },
                                         modifier = Modifier.clickable {
                                             val newPathParts = currentPathParts + folder.name
-                                            loadFolder(folder.pathLower!!, newPathParts)
+                                            loadFolder(folder.pathDisplay!!, newPathParts)
                                         }
                                     )
                                 }

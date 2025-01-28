@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "5867d6f549f4a0a6d1a244defe455bb9",
+    "identityHash": "494719844765ab4ebe11c5e326d84fb3",
     "entities": [
       {
         "tableName": "playlists",
@@ -50,7 +50,7 @@
       },
       {
         "tableName": "cloud_folder_mappings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `localPath` TEXT NOT NULL, `cloudPath` TEXT NOT NULL, `provider` TEXT NOT NULL, `lastSync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `localPath` TEXT NOT NULL, `cloudPath` TEXT NOT NULL, `cloudFolderId` TEXT NOT NULL, `provider` TEXT NOT NULL, `lastSync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -67,6 +67,12 @@
           {
             "fieldPath": "cloudPath",
             "columnName": "cloudPath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cloudFolderId",
+            "columnName": "cloudFolderId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -96,7 +102,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5867d6f549f4a0a6d1a244defe455bb9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '494719844765ab4ebe11c5e326d84fb3')"
     ]
   }
 }

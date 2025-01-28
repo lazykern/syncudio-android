@@ -56,6 +56,7 @@ class CloudMappingRepository(private val symphony: Symphony) {
                 id = CloudFolderMapping.generateId(localPath, cloudPath),
                 localPath = localPath,
                 cloudPath = cloudPath,
+                cloudFolderId = cloudPath,  // Using cloudPath as cloudFolderId for now
                 provider = provider,
                 lastSync = System.currentTimeMillis()
             )

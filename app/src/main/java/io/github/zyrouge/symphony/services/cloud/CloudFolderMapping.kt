@@ -12,6 +12,7 @@ data class CloudFolderMapping(
     val id: String,
     val localPath: String,
     val cloudPath: String,
+    val cloudFolderId: String,
     val provider: String,
     val lastSync: Long,
 ) {
