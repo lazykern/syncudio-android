@@ -1,34 +1,52 @@
 package io.github.zyrouge.symphony.ui.view.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.zyrouge.symphony.services.cloud.DropboxAuthState
 import io.github.zyrouge.symphony.ui.components.IconButtonPlaceholder
 import io.github.zyrouge.symphony.ui.components.TopAppBarMinimalTitle
 import io.github.zyrouge.symphony.ui.components.settings.SettingsSideHeading
 import io.github.zyrouge.symphony.ui.components.settings.SettingsSimpleTile
+import io.github.zyrouge.symphony.utils.ActivityUtils
 import io.github.zyrouge.symphony.ui.helpers.ViewContext
+import kotlinx.coroutines.launch
+import io.github.zyrouge.symphony.ui.components.DropboxFolderPickerDialog
+import io.github.zyrouge.symphony.services.groove.CloudFolderMapping
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CloudStorageSettingsView(context: ViewContext) {
     val scrollState = rememberScrollState()
     val authState by context.symphony.dropbox.authState.collectAsState()
+    val mappings by context.symphony.groove.cloudMapping.all.collectAsState()
+    var showAddMappingDialog by remember { mutableStateOf(false) }
+    var mappingToDelete: CloudFolderMapping? by remember { mutableStateOf(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -128,8 +146,384 @@ fun CloudStorageSettingsView(context: ViewContext) {
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SettingsSideHeading(context.symphony.t.CloudMappings)
+                    
+                    if (mappings.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CloudSync,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    context.symphony.t.DamnThisIsSoEmpty,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                FilledTonalButton(
+                                    onClick = { showAddMappingDialog = true }
+                                ) {
+                                    Icon(Icons.Default.Add, null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(context.symphony.t.AddItem)
+                                }
+                            }
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            mappings.forEach { mappingId ->
+                                context.symphony.groove.cloudMapping.get(mappingId)?.let { mapping ->
+                                    CloudMappingCard(
+                                        context = context,
+                                        mapping = mapping,
+                                        onDelete = {
+                                            mappingToDelete = mapping
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (authState is DropboxAuthState.Authenticated) {
+                    ExtendedFloatingActionButton(
+                        onClick = { showAddMappingDialog = true },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                        icon = { Icon(Icons.Default.Add, null) },
+                        text = { Text(context.symphony.t.AddItem) }
+                    )
                 }
             }
         }
     )
+
+    // Add delete confirmation dialog
+    mappingToDelete?.let { mapping ->
+        AlertDialog(
+            onDismissRequest = { mappingToDelete = null },
+            icon = {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = {
+                Text(context.symphony.t.DeletePlaylist)
+            },
+            text = {
+                Text(context.symphony.t.AreYouSureThatYouWantToDeleteThisPlaylist)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            context.symphony.groove.cloudMapping.remove(mapping.id)
+                            mappingToDelete = null
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(context.symphony.t.Delete)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { mappingToDelete = null }
+                ) {
+                    Text(context.symphony.t.Cancel)
+                }
+            }
+        )
+    }
+
+    if (showAddMappingDialog) {
+        AddCloudMappingDialog(
+            context = context,
+            onDismiss = { showAddMappingDialog = false },
+            onAdd = { localPath, cloudPath ->
+                context.symphony.groove.cloudMapping.add(
+                    localPath = localPath,
+                    cloudPath = cloudPath,
+                    provider = "dropbox"
+                )
+                showAddMappingDialog = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CloudMappingCard(
+    context: ViewContext,
+    mapping: CloudFolderMapping,
+    onDelete: () -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Header with delete button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CloudQueue,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Dropbox",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                IconButton(
+                    onClick = onDelete,
+                    colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Default.Delete, null)
+                }
+            }
+
+            // Paths
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Local Path
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Folder,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        mapping.localPath,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                // Cloud Path
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CloudSync,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        mapping.cloudPath,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Last sync time
+            Text(
+                "Last synced: ${formatLastSync(mapping.lastSync)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddCloudMappingDialog(
+    context: ViewContext,
+    onDismiss: () -> Unit,
+    onAdd: suspend (localPath: String, cloudPath: String) -> Unit
+) {
+    var localPath by remember { mutableStateOf("") }
+    var cloudPath by remember { mutableStateOf("") }
+    var isProcessing by remember { mutableStateOf(false) }
+    var showDropboxPicker by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val pickFolderLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { selectedUri ->
+            // Make the URI persistable and readable
+            ActivityUtils.makePersistableReadableUri(context.symphony.applicationContext, selectedUri)
+            // Get the path from URI
+            val path = selectedUri.path?.substringAfter("/tree/")?.replace(":", "/")
+            path?.let { localPath = "/$it" }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(context.symphony.t.AddItem)
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Local Path Selection
+                OutlinedCard(
+                    onClick = {
+                        pickFolderLauncher.launch(null)
+                    }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            context.symphony.t.Path,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Folder,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                localPath.ifEmpty { context.symphony.t.PickFolder },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                // Cloud Path Selection
+                OutlinedCard(
+                    onClick = {
+                        showDropboxPicker = true
+                    }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "Dropbox Path",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.CloudQueue,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                cloudPath.ifEmpty { "Select Dropbox folder" },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (localPath.isNotEmpty() && cloudPath.isNotEmpty()) {
+                        isProcessing = true
+                        coroutineScope.launch {
+                            onAdd(localPath, cloudPath)
+                        }
+                    }
+                },
+                enabled = !isProcessing && localPath.isNotEmpty() && cloudPath.isNotEmpty()
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(context.symphony.t.Done)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isProcessing
+            ) {
+                Text(context.symphony.t.Cancel)
+            }
+        }
+    )
+
+    if (showDropboxPicker) {
+        DropboxFolderPickerDialog(
+            context = context,
+            onDismissRequest = {
+                showDropboxPicker = false
+            },
+            onSelect = { path ->
+                cloudPath = path
+                showDropboxPicker = false
+            }
+        )
+    }
+}
+
+private fun formatLastSync(timestamp: Long): String {
+    return SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault())
+        .format(Date(timestamp))
 }
