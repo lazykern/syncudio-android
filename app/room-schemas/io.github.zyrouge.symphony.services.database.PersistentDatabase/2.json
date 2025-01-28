@@ -50,7 +50,7 @@
       },
       {
         "tableName": "cloud_folder_mappings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `localPath` TEXT NOT NULL, `cloudPath` TEXT NOT NULL, `cloudFolderId` TEXT NOT NULL, `provider` TEXT NOT NULL, `lastSync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `localPath` TEXT NOT NULL, `cloudPath` TEXT NOT NULL, `cloudFolderId` TEXT NOT NULL, `provider` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -80,12 +80,6 @@
             "fieldPath": "provider",
             "columnName": "provider",
             "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "lastSync",
-            "columnName": "lastSync",
-            "affinity": "INTEGER",
             "notNull": true
           }
         ],

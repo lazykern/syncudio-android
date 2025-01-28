@@ -360,13 +360,6 @@ private fun CloudMappingCard(
                     )
                 }
             }
-
-            // Last sync time
-            Text(
-                "Last synced: ${formatLastSync(mapping.lastSync)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -547,9 +540,4 @@ private fun AddCloudMappingDialog(
             }
         )
     }
-}
-
-private fun formatLastSync(timestamp: Long): String {
-    return SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault())
-        .format(Date(timestamp))
 }

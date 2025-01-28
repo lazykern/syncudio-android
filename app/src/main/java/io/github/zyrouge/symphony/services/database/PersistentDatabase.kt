@@ -45,7 +45,6 @@ abstract class PersistentDatabase : RoomDatabase() {
                     `cloudPath` TEXT NOT NULL,
                     `cloudFolderId` TEXT NOT NULL,
                     `provider` TEXT NOT NULL,
-                    `lastSync` INTEGER NOT NULL,
                     PRIMARY KEY(`id`)
                 )
             """)

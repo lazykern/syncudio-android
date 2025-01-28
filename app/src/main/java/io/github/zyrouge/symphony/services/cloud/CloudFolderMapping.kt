@@ -14,7 +14,6 @@ data class CloudFolderMapping(
     val cloudPath: String,
     val cloudFolderId: String,
     val provider: String,
-    val lastSync: Long,
 ) {
     companion object {
         fun generateId(localPath: String, cloudPath: String) = "$localPath:$cloudPath".hashCode().toString()

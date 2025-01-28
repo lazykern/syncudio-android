@@ -57,8 +57,7 @@ class CloudMappingRepository(private val symphony: Symphony) {
                 localPath = localPath,
                 cloudPath = cloudPath,
                 cloudFolderId = cloudPath,  // Using cloudPath as cloudFolderId for now
-                provider = provider,
-                lastSync = System.currentTimeMillis()
+                provider = provider
             )
             symphony.database.cloudMappings.insert(mapping)
             cache[mapping.id] = mapping
