@@ -382,6 +382,7 @@ private fun AddCloudMappingDialog(
     var cloudPath by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
     var showDropboxPicker by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     val pickFolderLauncher = rememberLauncherForActivityResult(
@@ -406,6 +407,16 @@ private fun AddCloudMappingDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Error message
+                error?.let { errorMessage ->
+                    Text(
+                        errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
                 // Local Path Selection
                 OutlinedCard(
                     onClick = {
@@ -482,8 +493,23 @@ private fun AddCloudMappingDialog(
                 onClick = {
                     if (localPath.isNotEmpty() && cloudPath.isNotEmpty()) {
                         isProcessing = true
+                        error = null
                         coroutineScope.launch {
-                            onAdd(localPath, cloudPath)
+                            try {
+                                context.symphony.groove.cloudMapping.add(
+                                    localPath = localPath,
+                                    cloudPath = cloudPath,
+                                    provider = "dropbox"
+                                ).onSuccess {
+                                    onDismiss()
+                                }.onFailure { err ->
+                                    error = err.message
+                                    isProcessing = false
+                                }
+                            } catch (err: Exception) {
+                                error = err.message ?: "Failed to add mapping"
+                                isProcessing = false
+                            }
                         }
                     }
                 },

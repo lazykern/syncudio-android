@@ -38,18 +38,36 @@ class CloudMappingRepository(private val symphony: Symphony) {
         }
     }
 
-    suspend fun add(localPath: String, cloudPath: String, provider: String) {
-        val mapping = CloudFolderMapping(
-            id = CloudFolderMapping.generateId(localPath, cloudPath),
-            localPath = localPath,
-            cloudPath = cloudPath,
-            provider = provider,
-            lastSync = System.currentTimeMillis()
-        )
-        symphony.database.cloudMappings.insert(mapping)
-        cache[mapping.id] = mapping
-        emitAll()
-        emitCount()
+    suspend fun add(localPath: String, cloudPath: String, provider: String): Result<CloudFolderMapping> {
+        try {
+            // Check for duplicate paths
+            val existingMappings = cache.values
+            val hasDuplicateLocal = existingMappings.any { it.localPath == localPath }
+            val hasDuplicateCloud = existingMappings.any { it.cloudPath == cloudPath }
+
+            if (hasDuplicateLocal) {
+                return Result.failure(Exception("A mapping for local path '$localPath' already exists"))
+            }
+            if (hasDuplicateCloud) {
+                return Result.failure(Exception("A mapping for cloud path '$cloudPath' already exists"))
+            }
+
+            val mapping = CloudFolderMapping(
+                id = CloudFolderMapping.generateId(localPath, cloudPath),
+                localPath = localPath,
+                cloudPath = cloudPath,
+                provider = provider,
+                lastSync = System.currentTimeMillis()
+            )
+            symphony.database.cloudMappings.insert(mapping)
+            cache[mapping.id] = mapping
+            emitAll()
+            emitCount()
+            return Result.success(mapping)
+        } catch (err: Exception) {
+            Logger.error(TAG, "add failed", err)
+            return Result.failure(err)
+        }
     }
 
     suspend fun remove(id: String) {
