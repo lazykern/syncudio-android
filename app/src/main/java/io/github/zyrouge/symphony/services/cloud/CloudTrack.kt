@@ -6,6 +6,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import io.github.zyrouge.symphony.services.groove.Song
 import java.time.LocalDate
+import java.time.OffsetDateTime
 
 @Immutable
 @Entity("cloud_tracks")
@@ -43,6 +44,8 @@ data class CloudTrack(
     val isDownloaded: Boolean = false,
     val localPath: String? = null,
     val localUri: Uri? = null,
+    // Metadata status
+    val needsMetadataUpdate: Boolean = false,
 ) {
     companion object {
         fun fromMetadata(
@@ -54,9 +57,15 @@ data class CloudTrack(
         ): CloudTrack {
             val date = metadata.tags.date?.let {
                 try {
-                    LocalDate.parse(it)
+                    // Parse ISO-8601 timestamp and extract the date part
+                    OffsetDateTime.parse(it).toLocalDate()
                 } catch (e: Exception) {
-                    null
+                    try {
+                        // Fallback to just date format
+                        LocalDate.parse(it)
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
             }
 
@@ -86,6 +95,7 @@ data class CloudTrack(
                 encoder = metadata.tags.encoder,
                 size = 0, // Will be updated when file metadata is fetched
                 blake3Hash = metadata.blake3Hash,
+                needsMetadataUpdate = false,
             )
         }
 

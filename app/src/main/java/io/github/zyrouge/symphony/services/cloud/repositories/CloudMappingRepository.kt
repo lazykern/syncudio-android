@@ -1,6 +1,7 @@
 package io.github.zyrouge.symphony.services.cloud.repositories
 
 import io.github.zyrouge.symphony.Symphony
+import io.github.zyrouge.symphony.services.cloud.Cloud
 import io.github.zyrouge.symphony.services.cloud.CloudFolderMapping
 import io.github.zyrouge.symphony.utils.Logger
 import io.github.zyrouge.symphony.utils.SimplePath
@@ -63,6 +64,10 @@ class CloudMappingRepository(private val symphony: Symphony) {
             cache[mapping.id] = mapping
             emitAll()
             emitCount()
+
+            // Trigger cloud sync after adding new mapping
+            symphony.cloud.fetch(Cloud.FetchOptions())
+
             return Result.success(mapping)
         } catch (err: Exception) {
             Logger.error(TAG, "add failed", err)
