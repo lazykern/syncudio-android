@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -78,8 +79,13 @@ fun SongCard(
         derivedStateOf { favoriteSongIds.contains(song.id) }
     }
 
+    val undownloadedOpacity by context.symphony.cloud.undownloadedOpacity.collectAsState()
+    val opacity = if (song.isCloudTrack && !song.isCloudTrackDownloaded) undownloadedOpacity else 1f
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer(alpha = opacity),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         onClick = onClick
     ) {

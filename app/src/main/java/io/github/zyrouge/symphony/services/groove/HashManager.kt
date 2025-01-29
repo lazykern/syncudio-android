@@ -2,11 +2,13 @@ package io.github.zyrouge.symphony.services.groove
 
 import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.utils.Logger
+import io.github.zyrouge.symphony.utils.SMLBLAKE3
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HashManager(private val symphony: Symphony) {
@@ -41,6 +43,28 @@ class HashManager(private val symphony: Symphony) {
             }
         } finally {
             _isComputingHashes.value = false
+        }
+    }
+
+    suspend fun computeBlake3Hash(filePath: String): String? {
+        return try {
+            withContext(hashingDispatcher) {
+                val file = File(filePath)
+                if (!file.exists()) return@withContext null
+                
+                val hasher = SMLBLAKE3.newInstance()
+                file.inputStream().use { input ->
+                    val buffer = ByteArray(8192) // 8KB buffer
+                    var bytesRead: Int
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        hasher.update(buffer.copyOfRange(0, bytesRead))
+                    }
+                }
+                hasher.hexdigest()
+            }
+        } catch (err: Exception) {
+            Logger.warn("HashManager", "Failed to compute BLAKE3 hash for $filePath", err)
+            null
         }
     }
 } 

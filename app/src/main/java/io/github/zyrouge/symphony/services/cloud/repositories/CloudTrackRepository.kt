@@ -15,9 +15,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.encodeToString
 import java.io.File
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -25,6 +27,13 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import me.zyrouge.symphony.metaphony.AudioMetadataParser
 import android.os.ParcelFileDescriptor
+import io.github.zyrouge.symphony.services.cloud.SyncStatus
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonNull
 
 class CloudTrackRepository(private val symphony: Symphony) {
     private val _tracks = MutableStateFlow<List<CloudTrack>>(emptyList())
@@ -192,26 +201,18 @@ class CloudTrackRepository(private val symphony: Symphony) {
         try {
             updateProgress(phase = SyncPhase.SCANNING_FOLDERS)
             val mappings = symphony.database.cloudMappings.getAll()
-            var totalFiles = 0
-            
-            // First pass: count total files
-            mappings.forEach { mapping ->
-                val result = symphony.dropbox.listFolder(mapping.cloudPath, recursive = true)
-                if (result.isSuccess) {
-                    totalFiles += result.getOrNull()?.entries?.size ?: 0
-                }
-            }
-            
-            updateProgress(current = 0, total = totalFiles)
             var processedFiles = 0
-
-            // Second pass: process files
+            
             mappings.forEach { mapping ->
                 updateProgress(folder = mapping.cloudPath)
                 val result = symphony.dropbox.listFolder(mapping.cloudPath, recursive = true)
                 
                 if (result.isSuccess) {
-                    result.getOrNull()?.entries?.forEach { entry ->
+                    val entries = result.getOrNull()?.entries ?: emptyList()
+                    // Update total count as we discover files
+                    updateProgress(total = entries.size)
+                    
+                    entries.forEach { entry ->
                         if (entry is FileMetadata) {
                             val cloudPath = entry.pathDisplay ?: entry.pathLower ?: ""
                             if (cloudPath.endsWith(".mp3") || cloudPath.endsWith(".flac") || cloudPath.endsWith(".m4a")) {
@@ -250,7 +251,7 @@ class CloudTrackRepository(private val symphony: Symphony) {
             id = cloudFileId.hashCode().toString(),  // Same ID generation as CloudTrack.generateId
             cloudFileId = cloudFileId,
             cloudPath = cloudPath,
-            provider = provider,
+                        provider = provider,
             lastModified = lastModified,
             lastSync = System.currentTimeMillis(),
             title = fileName,
@@ -447,6 +448,250 @@ class CloudTrackRepository(private val symphony: Symphony) {
             Result.success(tracks)
         } catch (e: Exception) {
             Logger.error(TAG, "Failed to sync metadata", e)
+            updateProgress(phase = SyncPhase.ERROR)
+            Result.failure(e)
+        } finally {
+            endUpdate()
+        }
+    }
+
+    suspend fun generateMetadataJson(): String = withContext(Dispatchers.IO) {
+        val tracks = symphony.database.cloudTrackCache.getAll()
+        val metadataTracks = tracks.map { track ->
+            buildJsonObject {
+                put("blake3_hash", JsonPrimitive(track.blake3Hash))
+                put("cloud_file_id", JsonPrimitive(track.cloudFileId))
+                put("cloud_path", JsonPrimitive(track.cloudPath))
+                put("relative_path", JsonPrimitive(track.cloudPath.removePrefix("/")))
+                put("last_modified", JsonPrimitive(OffsetDateTime.now().toString()))
+                put("last_sync", JsonPrimitive(OffsetDateTime.now().toString()))
+                put("provider", JsonPrimitive(track.provider))
+                put("cloud_folder_id", JsonPrimitive(""))  // Not used currently
+                putJsonObject("tags") {
+                    put("title", JsonPrimitive(track.title))
+                    put("album", track.album?.let { JsonPrimitive(it) } ?: JsonNull)
+                    putJsonArray("artists") { track.artists.forEach { add(JsonPrimitive(it)) } }
+                    putJsonArray("composers") { track.composers.forEach { add(JsonPrimitive(it)) } }
+                    putJsonArray("album_artists") { track.albumArtists.forEach { add(JsonPrimitive(it)) } }
+                    putJsonArray("genres") { track.genres.forEach { add(JsonPrimitive(it)) } }
+                    put("date", track.date?.let { JsonPrimitive(it.toString()) } ?: JsonNull)
+                    put("year", track.year?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("duration", JsonPrimitive((track.duration / 1000).toInt())) // Convert from ms to seconds
+                    put("track_no", track.trackNumber?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("track_of", track.trackTotal?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("disk_no", track.discNumber?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("disk_of", track.discTotal?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("bitrate", track.bitrate?.toInt()?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("sampling_rate", track.samplingRate?.toInt()?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("channels", track.channels?.let { JsonPrimitive(it) } ?: JsonNull)
+                    put("encoder", track.encoder?.let { JsonPrimitive(it) } ?: JsonNull)
+                }
+            }
+        }
+        
+        return@withContext buildJsonObject {
+            putJsonArray("tracks") {
+                metadataTracks.forEach { add(it) }
+            }
+        }.toString()
+    }
+
+    suspend fun uploadMetadata() = withContext(Dispatchers.IO) {
+        try {
+            updateProgress(phase = SyncPhase.UPLOADING_METADATA)
+            val content = generateMetadataJson()
+            val result = symphony.dropbox.uploadMetadataFile(content)
+            
+            if (!result) {
+                Logger.error(TAG, "Failed to upload metadata file")
+                updateProgress(phase = SyncPhase.ERROR)
+                return@withContext Result.failure(Exception("Failed to upload metadata file"))
+            }
+
+            updateProgress(phase = SyncPhase.COMPLETED)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Logger.error(TAG, "Failed to upload metadata", e)
+            updateProgress(phase = SyncPhase.ERROR)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Matches a local track with its cloud counterpart based on path mapping and hash
+     */
+    private suspend fun findMatchingCloudTrack(localPath: String, localHash: String): CloudTrack? {
+        // First try to find by path mapping
+        val cloudPath = getCloudPathFromLocalPath(localPath) ?: return null
+        var track = symphony.database.cloudTrackCache.getByCloudPath(cloudPath)
+        
+        if (track != null) {
+            // If found by path, verify hash
+            if (track.blake3Hash == localHash) {
+                return track
+            }
+        }
+        
+        // If not found by path or hash mismatch, try to find by hash
+        track = symphony.database.cloudTrackCache.getByBlake3Hash(localHash)
+        return track
+    }
+
+    /**
+     * Gets the cloud path corresponding to a local path using folder mappings
+     */
+    private suspend fun getCloudPathFromLocalPath(localPath: String): String? {
+        val mappings = symphony.database.cloudMappings.getAll()
+        for (mapping in mappings) {
+            if (localPath.startsWith(mapping.localPath)) {
+                val relativePath = localPath.removePrefix(mapping.localPath)
+                return mapping.cloudPath + relativePath
+            }
+        }
+        return null
+    }
+
+    /**
+     * Updates the sync status of a track based on its local and cloud state
+     */
+    private suspend fun updateTrackSyncStatus(
+        track: CloudTrack,
+        localPath: String? = null,
+        localHash: String? = null
+    ) {
+        val updatedTrack = when {
+            // Track exists only in cloud
+            localPath == null -> track.copy(syncStatus = SyncStatus.CLOUD_ONLY)
+            
+            // Track exists in both places
+            localHash != null -> {
+                when {
+                    // Hashes match - track is synced
+                    localHash == track.blake3Hash -> track.copy(syncStatus = SyncStatus.SYNCED)
+                    
+                    // Hashes don't match - conflict
+                    else -> track.copy(syncStatus = SyncStatus.CONFLICT)
+                }
+            }
+            
+            // Track exists locally but hash not computed
+            else -> track.copy(syncStatus = SyncStatus.CONFLICT)
+        }
+        
+        if (updatedTrack.syncStatus != track.syncStatus) {
+            update(updatedTrack)
+        }
+    }
+
+    /**
+     * Syncs a local track with the cloud
+     */
+    suspend fun syncLocalTrack(localPath: String, localHash: String) = withContext(Dispatchers.IO) {
+        try {
+            // Find matching cloud track
+            val cloudTrack = findMatchingCloudTrack(localPath, localHash)
+            
+            if (cloudTrack != null) {
+                // Update sync status
+                updateTrackSyncStatus(cloudTrack, localPath, localHash)
+                Result.success(cloudTrack)
+            } else {
+                // Track only exists locally
+                val cloudPath = getCloudPathFromLocalPath(localPath) ?: return@withContext Result.failure(
+                    Exception("No matching cloud folder mapping found for $localPath")
+                )
+                
+                // Create new cloud track
+                val track = CloudTrack.createBasic(
+                    cloudFileId = "", // Will be set after upload
+                    cloudPath = cloudPath,
+                    provider = "dropbox",
+                    lastModified = System.currentTimeMillis(),
+                    size = File(localPath).length(),
+                    blake3Hash = localHash,
+                    syncStatus = SyncStatus.LOCAL_ONLY
+                )
+                
+                insert(track)
+                Result.success(track)
+            }
+        } catch (e: Exception) {
+            Logger.error(TAG, "Failed to sync local track: $localPath", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Main sync method that handles the synchronization process
+     * This method:
+     * 1. Scans local and cloud tracks
+     * 2. Matches tracks and updates sync status
+     * 3. Handles conflicts
+     * Note: This does not handle downloads, as per requirements
+     */
+    suspend fun syncTracks() = withContext(Dispatchers.IO) {
+        try {
+            startUpdate()
+            updateProgress(phase = SyncPhase.SCANNING_FOLDERS)
+            
+            // First scan cloud folders to get latest state
+            val scanResult = scanCloudFolders()
+            if (scanResult.isFailure) {
+                return@withContext scanResult
+            }
+
+            // Get all mapped local tracks
+            val mappings = symphony.database.cloudMappings.getAll()
+            val localTracks = mutableListOf<Pair<String, String>>() // path, hash pairs
+            
+            mappings.forEach { mapping ->
+                val localFolder = File(mapping.localPath)
+                if (localFolder.exists() && localFolder.isDirectory) {
+                    localFolder.walk().forEach { file ->
+                        if (file.isFile && (file.extension == "mp3" || file.extension == "flac" || file.extension == "m4a")) {
+                            val hash = symphony.groove.hashManager.computeBlake3Hash(file.absolutePath)
+                            if (hash != null) {
+                                localTracks.add(Pair(file.absolutePath, hash))
+                            }
+                        }
+                    }
+                }
+            }
+
+            updateProgress(
+                current = 0,
+                total = localTracks.size,
+                phase = SyncPhase.UPDATING_DATABASE
+            )
+
+            // Process each local track
+            var current = 0
+            localTracks.forEach { (path, hash) ->
+                syncLocalTrack(path, hash)
+                current++
+                updateProgress(current = current)
+            }
+
+            // Update status of cloud-only tracks
+            val cloudTracks = symphony.database.cloudTrackCache.getAll()
+            cloudTracks.forEach { track ->
+                val localPath = getLocalPathFromCloudPath(track.cloudPath)
+                if (localPath == null || !File(localPath).exists()) {
+                    updateTrackSyncStatus(track)
+                }
+            }
+
+            // Upload metadata
+            updateProgress(phase = SyncPhase.UPLOADING_METADATA)
+            val uploadResult = uploadMetadata()
+            if (uploadResult.isFailure) {
+                return@withContext uploadResult
+            }
+
+            updateProgress(phase = SyncPhase.COMPLETED)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Logger.error(TAG, "Failed to sync tracks", e)
             updateProgress(phase = SyncPhase.ERROR)
             Result.failure(e)
         } finally {

@@ -78,6 +78,16 @@ data class Song(
         }
 
     val filename get() = SimplePath(path).name
+    
+    /**
+     * Check if this song is from cloud
+     */
+    val isCloudTrack get() = cloudFileId != null && uri.scheme == "cloud"
+    
+    /**
+     * Check if this song is downloaded (only applicable for cloud tracks)
+     */
+    val isCloudTrackDownloaded get() = isCloudTrack && uri.scheme != "cloud"
 
     fun createArtworkImageRequest(symphony: Symphony) =
         symphony.groove.song.createArtworkImageRequest(id)

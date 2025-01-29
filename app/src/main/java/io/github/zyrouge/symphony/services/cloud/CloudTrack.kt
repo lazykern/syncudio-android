@@ -8,6 +8,33 @@ import io.github.zyrouge.symphony.services.groove.Song
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
+enum class SyncStatus {
+    /**
+     * Track exists only locally
+     */
+    LOCAL_ONLY,
+    
+    /**
+     * Track exists only in cloud
+     */
+    CLOUD_ONLY,
+    
+    /**
+     * Track exists in both places and is in sync
+     */
+    SYNCED,
+    
+    /**
+     * Track exists in both places but has conflicts
+     */
+    CONFLICT,
+    
+    /**
+     * Track is currently being synced
+     */
+    SYNCING
+}
+
 @Immutable
 @Entity("cloud_tracks")
 data class CloudTrack(
@@ -46,8 +73,58 @@ data class CloudTrack(
     val localUri: Uri? = null,
     // Metadata status
     val needsMetadataUpdate: Boolean = false,
+    val syncStatus: SyncStatus = SyncStatus.CLOUD_ONLY,
 ) {
     companion object {
+        fun generateId(cloudFileId: String) = cloudFileId.hashCode().toString()
+
+        /**
+         * Creates a basic cloud track with minimal information
+         */
+        fun createBasic(
+            cloudFileId: String,
+            cloudPath: String,
+            provider: String,
+            lastModified: Long,
+            size: Long,
+            blake3Hash: String,
+            syncStatus: SyncStatus = SyncStatus.CLOUD_ONLY,
+        ): CloudTrack {
+            val fileName = cloudPath.substringAfterLast('/')
+            return CloudTrack(
+                id = generateId(cloudFileId),
+                cloudFileId = cloudFileId,
+                cloudPath = cloudPath,
+                provider = provider,
+                lastModified = lastModified,
+                lastSync = System.currentTimeMillis(),
+                title = fileName,
+                album = null,
+                artists = emptySet(),
+                composers = emptySet(),
+                albumArtists = emptySet(),
+                genres = emptySet(),
+                trackNumber = null,
+                trackTotal = null,
+                discNumber = null,
+                discTotal = null,
+                date = null,
+                year = null,
+                duration = 0,
+                bitrate = null,
+                samplingRate = null,
+                channels = null,
+                encoder = null,
+                size = size,
+                blake3Hash = blake3Hash,
+                isDownloaded = false,
+                localPath = null,
+                localUri = null,
+                needsMetadataUpdate = true,
+                syncStatus = syncStatus
+            )
+        }
+
         fun fromMetadata(
             cloudFileId: String,
             cloudPath: String,
@@ -98,8 +175,6 @@ data class CloudTrack(
                 needsMetadataUpdate = false,
             )
         }
-
-        private fun generateId(cloudFileId: String) = cloudFileId.hashCode().toString()
     }
 
     fun toSong(): Song {
