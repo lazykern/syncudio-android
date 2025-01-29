@@ -29,6 +29,7 @@ data class CloudTrack(
     val trackTotal: Int?,
     val discNumber: Int?,
     val discTotal: Int?,
+    val date: LocalDate?,
     val year: Int?,
     val duration: Long,
     val bitrate: Long?,
@@ -51,6 +52,14 @@ data class CloudTrack(
             lastModified: Long,
             metadata: CloudTrackMetadata
         ): CloudTrack {
+            val date = metadata.tags.date?.let {
+                try {
+                    LocalDate.parse(it)
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
             return CloudTrack(
                 id = generateId(cloudFileId),
                 cloudFileId = cloudFileId,
@@ -68,6 +77,7 @@ data class CloudTrack(
                 trackTotal = metadata.tags.trackOf,
                 discNumber = metadata.tags.diskNo,
                 discTotal = metadata.tags.diskOf,
+                date = date,
                 year = metadata.tags.year,
                 duration = metadata.tags.duration.toLong() * 1000, // Convert to milliseconds
                 bitrate = metadata.tags.bitrate?.toLong(),
@@ -95,7 +105,7 @@ data class CloudTrack(
             trackTotal = trackTotal,
             discNumber = discNumber,
             discTotal = discTotal,
-            date = null, // We don't store date in cloud metadata
+            date = date,
             year = year,
             duration = duration,
             bitrate = bitrate,
