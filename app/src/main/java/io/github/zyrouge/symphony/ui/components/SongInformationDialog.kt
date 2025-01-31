@@ -6,9 +6,16 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextDecoration
+import io.github.zyrouge.symphony.services.cloud.CloudTrack
+import io.github.zyrouge.symphony.services.cloud.CloudFolderMapping
 import io.github.zyrouge.symphony.services.groove.Song
 import io.github.zyrouge.symphony.ui.helpers.ViewContext
 import io.github.zyrouge.symphony.ui.view.AlbumArtistViewRoute
@@ -23,6 +30,22 @@ import kotlin.math.round
 
 @Composable
 fun SongInformationDialog(context: ViewContext, song: Song, onDismissRequest: () -> Unit) {
+    var cloudTrack by remember { mutableStateOf<CloudTrack?>(null) }
+    var folderMapping by remember { mutableStateOf<CloudFolderMapping?>(null) }
+
+    // Fetch cloud track data if this is a cloud track
+    LaunchedEffect(song.cloudFileId) {
+        if (song.isCloudTrack && song.cloudFileId != null) {
+            cloudTrack = context.symphony.database.cloudTrackCache.getByCloudFileId(song.cloudFileId)
+            // Find matching folder mapping
+            if (song.cloudPath != null) {
+                folderMapping = context.symphony.database.cloudMappings.getAll().find { mapping ->
+                    song.cloudPath.startsWith(mapping.cloudPath)
+                }
+            }
+        }
+    }
+
     InformationDialog(
         context,
         content = {
@@ -153,8 +176,27 @@ fun SongInformationDialog(context: ViewContext, song: Song, onDismissRequest: ()
                 InformationKeyValue("Cloud Path") {
                     LongPressCopyableText(context, song.cloudPath ?: "")
                 }
-                InformationKeyValue("Cloud Status") {
+                InformationKeyValue("Cloud File ID") {
+                    LongPressCopyableText(context, song.cloudFileId ?: "")
+                }
+                InformationKeyValue("Local Path") {
+                    LongPressCopyableText(context, song.path)
+                }
+                InformationKeyValue("Download Status") {
                     Text(if (song.isCloudTrackDownloaded) "Downloaded" else "Not Downloaded")
+                }
+                InformationKeyValue("Sync Status") {
+                    cloudTrack?.let {
+                        Text(it.syncStatus.name.replace("_", " "))
+                    }
+                }
+                folderMapping?.let { mapping ->
+                    InformationKeyValue("Folder Mapping") {
+                        Text("Local: ${mapping.localPath}")
+                    }
+                    InformationKeyValue("") {
+                        Text("Cloud: ${mapping.cloudPath}")
+                    }
                 }
             }
         },
