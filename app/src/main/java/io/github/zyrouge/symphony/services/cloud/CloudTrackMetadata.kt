@@ -1,11 +1,10 @@
 package io.github.zyrouge.symphony.services.cloud
 
 data class CloudTrackMetadata(
-    val blake3Hash: String,
+    val tags: Tags,
     val cloudFileId: String,
     val cloudPath: String,
     val relativePath: String,
-    val tags: Tags,
     val lastModified: String,
     val lastSync: String,
     val provider: String,

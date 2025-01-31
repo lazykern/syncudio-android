@@ -108,7 +108,7 @@ fun SongInformationDialog(context: ViewContext, song: Song, onDismissRequest: ()
             }
             song.encoder?.let {
                 InformationKeyValue(context.symphony.t.Encoder) {
-                    LongPressCopyableText(context, it)
+                    Text(it)
                 }
             }
             song.channels?.let {
@@ -143,11 +143,6 @@ fun SongInformationDialog(context: ViewContext, song: Song, onDismissRequest: ()
                     context,
                     SimpleDateFormat.getInstance().format(Date(song.dateModified * 1000)),
                 )
-            }
-            song.blake3Hash?.let {
-                InformationKeyValue("BLAKE3") {
-                    LongPressCopyableText(context, it)
-                }
             }
         },
         onDismissRequest = onDismissRequest,

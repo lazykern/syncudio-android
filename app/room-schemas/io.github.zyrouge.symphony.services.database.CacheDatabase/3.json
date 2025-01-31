@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "59b4a66e5c830b348110eb8bfe57fa46",
+    "identityHash": "831b732e467021e277ef7286cf776b4f",
     "entities": [
       {
         "tableName": "songs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `date` TEXT, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `dateModified` INTEGER NOT NULL, `size` INTEGER NOT NULL, `coverFile` TEXT, `uri` TEXT NOT NULL, `path` TEXT NOT NULL, `blake3Hash` TEXT, `cloudFileId` TEXT, `cloudPath` TEXT, `provider` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `date` TEXT, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `dateModified` INTEGER NOT NULL, `size` INTEGER NOT NULL, `coverFile` TEXT, `uri` TEXT NOT NULL, `path` TEXT NOT NULL, `cloudFileId` TEXT, `cloudPath` TEXT, `provider` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -147,12 +147,6 @@
             "notNull": true
           },
           {
-            "fieldPath": "blake3Hash",
-            "columnName": "blake3Hash",
-            "affinity": "TEXT",
-            "notNull": false
-          },
-          {
             "fieldPath": "cloudFileId",
             "columnName": "cloudFileId",
             "affinity": "TEXT",
@@ -179,12 +173,200 @@
         },
         "indices": [],
         "foreignKeys": []
+      },
+      {
+        "tableName": "cloud_tracks",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `cloudFileId` TEXT NOT NULL, `cloudPath` TEXT NOT NULL, `provider` TEXT NOT NULL, `lastModified` INTEGER NOT NULL, `lastSync` INTEGER NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `date` TEXT, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `size` INTEGER NOT NULL, `isDownloaded` INTEGER NOT NULL, `localPath` TEXT, `localUri` TEXT, `needsMetadataUpdate` INTEGER NOT NULL, `syncStatus` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cloudFileId",
+            "columnName": "cloudFileId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cloudPath",
+            "columnName": "cloudPath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastModified",
+            "columnName": "lastModified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSync",
+            "columnName": "lastSync",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "album",
+            "columnName": "album",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "artists",
+            "columnName": "artists",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "composers",
+            "columnName": "composers",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "albumArtists",
+            "columnName": "albumArtists",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "genres",
+            "columnName": "genres",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trackNumber",
+            "columnName": "trackNumber",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "trackTotal",
+            "columnName": "trackTotal",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "discNumber",
+            "columnName": "discNumber",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "discTotal",
+            "columnName": "discTotal",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "duration",
+            "columnName": "duration",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bitrate",
+            "columnName": "bitrate",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "samplingRate",
+            "columnName": "samplingRate",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "channels",
+            "columnName": "channels",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "encoder",
+            "columnName": "encoder",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "size",
+            "columnName": "size",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDownloaded",
+            "columnName": "isDownloaded",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localPath",
+            "columnName": "localPath",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "localUri",
+            "columnName": "localUri",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "needsMetadataUpdate",
+            "columnName": "needsMetadataUpdate",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncStatus",
+            "columnName": "syncStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
       }
     ],
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '59b4a66e5c830b348110eb8bfe57fa46')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '831b732e467021e277ef7286cf776b4f')"
     ]
   }
 }

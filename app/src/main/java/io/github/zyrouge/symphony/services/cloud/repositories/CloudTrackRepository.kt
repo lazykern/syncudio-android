@@ -146,7 +146,6 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     val tags = track["tags"]?.jsonObject
 
                     CloudTrackMetadata(
-                        blake3Hash = track["blake3_hash"]?.toString() ?: "",
                         cloudFileId = track["cloud_file_id"]?.toString() ?: "",
                         cloudPath = track["cloud_path"]?.toString() ?: "",
                         relativePath = track["relative_path"]?.toString() ?: "",
@@ -251,7 +250,7 @@ class CloudTrackRepository(private val symphony: Symphony) {
             id = cloudFileId.hashCode().toString(),  // Same ID generation as CloudTrack.generateId
             cloudFileId = cloudFileId,
             cloudPath = cloudPath,
-                        provider = provider,
+            provider = provider,
             lastModified = lastModified,
             lastSync = System.currentTimeMillis(),
             title = fileName,
@@ -272,11 +271,11 @@ class CloudTrackRepository(private val symphony: Symphony) {
             channels = null,
             encoder = null,
             size = size,
-            blake3Hash = "",  // Will be computed when downloaded
             isDownloaded = false,
             localPath = null,
             localUri = null,
-            needsMetadataUpdate = true  // Mark as needing metadata update
+            needsMetadataUpdate = true,  // Mark as needing metadata update
+            syncStatus = SyncStatus.CLOUD_ONLY,
         )
 
         // Check if track exists locally using path mapping
@@ -307,11 +306,11 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     samplingRate = localSong.samplingRate,
                     channels = localSong.channels,
                     encoder = localSong.encoder,
-                    blake3Hash = localSong.blake3Hash ?: "",
                     isDownloaded = true,
                     localPath = localPath,
                     localUri = localSong.uri,
-                    needsMetadataUpdate = false  // Already has metadata
+                    needsMetadataUpdate = false,  // Already has metadata
+                    syncStatus = SyncStatus.SYNCED,
                 )
                 insert(updatedTrack)
                 return
@@ -369,7 +368,8 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     bitrate = metadata.bitrate?.toLong(),
                     samplingRate = metadata.sampleRate?.toLong(),
                     channels = metadata.channels,
-                    encoder = metadata.encoding
+                    encoder = metadata.encoding,
+                    syncStatus = SyncStatus.SYNCED,
                 )
                 update(updatedTrack)
             }
@@ -459,7 +459,6 @@ class CloudTrackRepository(private val symphony: Symphony) {
         val tracks = symphony.database.cloudTrackCache.getAll()
         val metadataTracks = tracks.map { track ->
             buildJsonObject {
-                put("blake3_hash", JsonPrimitive(track.blake3Hash))
                 put("cloud_file_id", JsonPrimitive(track.cloudFileId))
                 put("cloud_path", JsonPrimitive(track.cloudPath))
                 put("relative_path", JsonPrimitive(track.cloudPath.removePrefix("/")))
@@ -518,23 +517,12 @@ class CloudTrackRepository(private val symphony: Symphony) {
     }
 
     /**
-     * Matches a local track with its cloud counterpart based on path mapping and hash
+     * Matches a local track with its cloud counterpart based on path mapping
      */
-    private suspend fun findMatchingCloudTrack(localPath: String, localHash: String): CloudTrack? {
-        // First try to find by path mapping
+    private suspend fun findMatchingCloudTrack(localPath: String): CloudTrack? {
+        // Try to find by path mapping
         val cloudPath = getCloudPathFromLocalPath(localPath) ?: return null
-        var track = symphony.database.cloudTrackCache.getByCloudPath(cloudPath)
-        
-        if (track != null) {
-            // If found by path, verify hash
-            if (track.blake3Hash == localHash) {
-                return track
-            }
-        }
-        
-        // If not found by path or hash mismatch, try to find by hash
-        track = symphony.database.cloudTrackCache.getByBlake3Hash(localHash)
-        return track
+        return symphony.database.cloudTrackCache.getByCloudPath(cloudPath)
     }
 
     /**
@@ -556,26 +544,14 @@ class CloudTrackRepository(private val symphony: Symphony) {
      */
     private suspend fun updateTrackSyncStatus(
         track: CloudTrack,
-        localPath: String? = null,
-        localHash: String? = null
+        localPath: String? = null
     ) {
         val updatedTrack = when {
             // Track exists only in cloud
             localPath == null -> track.copy(syncStatus = SyncStatus.CLOUD_ONLY)
             
-            // Track exists in both places
-            localHash != null -> {
-                when {
-                    // Hashes match - track is synced
-                    localHash == track.blake3Hash -> track.copy(syncStatus = SyncStatus.SYNCED)
-                    
-                    // Hashes don't match - conflict
-                    else -> track.copy(syncStatus = SyncStatus.CONFLICT)
-                }
-            }
-            
-            // Track exists locally but hash not computed
-            else -> track.copy(syncStatus = SyncStatus.CONFLICT)
+            // Track exists in both places - consider it synced
+            else -> track.copy(syncStatus = SyncStatus.SYNCED)
         }
         
         if (updatedTrack.syncStatus != track.syncStatus) {
@@ -586,14 +562,14 @@ class CloudTrackRepository(private val symphony: Symphony) {
     /**
      * Syncs a local track with the cloud
      */
-    suspend fun syncLocalTrack(localPath: String, localHash: String) = withContext(Dispatchers.IO) {
+    suspend fun syncLocalTrack(localPath: String) = withContext(Dispatchers.IO) {
         try {
             // Find matching cloud track
-            val cloudTrack = findMatchingCloudTrack(localPath, localHash)
+            val cloudTrack = findMatchingCloudTrack(localPath)
             
             if (cloudTrack != null) {
                 // Update sync status
-                updateTrackSyncStatus(cloudTrack, localPath, localHash)
+                updateTrackSyncStatus(cloudTrack, localPath)
                 Result.success(cloudTrack)
             } else {
                 // Track only exists locally
@@ -608,7 +584,6 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     provider = "dropbox",
                     lastModified = System.currentTimeMillis(),
                     size = File(localPath).length(),
-                    blake3Hash = localHash,
                     syncStatus = SyncStatus.LOCAL_ONLY
                 )
                 
@@ -642,17 +617,14 @@ class CloudTrackRepository(private val symphony: Symphony) {
 
             // Get all mapped local tracks
             val mappings = symphony.database.cloudMappings.getAll()
-            val localTracks = mutableListOf<Pair<String, String>>() // path, hash pairs
+            val localTracks = mutableListOf<String>() // path only
             
             mappings.forEach { mapping ->
                 val localFolder = File(mapping.localPath)
                 if (localFolder.exists() && localFolder.isDirectory) {
                     localFolder.walk().forEach { file ->
                         if (file.isFile && (file.extension == "mp3" || file.extension == "flac" || file.extension == "m4a")) {
-                            val hash = symphony.groove.hashManager.computeBlake3Hash(file.absolutePath)
-                            if (hash != null) {
-                                localTracks.add(Pair(file.absolutePath, hash))
-                            }
+                            localTracks.add(file.absolutePath)
                         }
                     }
                 }
@@ -666,8 +638,8 @@ class CloudTrackRepository(private val symphony: Symphony) {
 
             // Process each local track
             var current = 0
-            localTracks.forEach { (path, hash) ->
-                syncLocalTrack(path, hash)
+            localTracks.forEach { path ->
+                syncLocalTrack(path)
                 current++
                 updateProgress(current = current)
             }

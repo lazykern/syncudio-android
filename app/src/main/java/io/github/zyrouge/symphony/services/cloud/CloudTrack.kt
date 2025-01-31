@@ -66,14 +66,12 @@ data class CloudTrack(
     val encoder: String?,
     // File info
     val size: Long,
-    val blake3Hash: String,
     // Cache status
-    val isDownloaded: Boolean = false,
-    val localPath: String? = null,
-    val localUri: Uri? = null,
-    // Metadata status
-    val needsMetadataUpdate: Boolean = false,
-    val syncStatus: SyncStatus = SyncStatus.CLOUD_ONLY,
+    val isDownloaded: Boolean,
+    val localPath: String?,
+    val localUri: Uri?,
+    val needsMetadataUpdate: Boolean,
+    val syncStatus: SyncStatus,
 ) {
     companion object {
         fun generateId(cloudFileId: String) = cloudFileId.hashCode().toString()
@@ -87,7 +85,6 @@ data class CloudTrack(
             provider: String,
             lastModified: Long,
             size: Long,
-            blake3Hash: String,
             syncStatus: SyncStatus = SyncStatus.CLOUD_ONLY,
         ): CloudTrack {
             val fileName = cloudPath.substringAfterLast('/')
@@ -116,7 +113,6 @@ data class CloudTrack(
                 channels = null,
                 encoder = null,
                 size = size,
-                blake3Hash = blake3Hash,
                 isDownloaded = false,
                 localPath = null,
                 localUri = null,
@@ -171,41 +167,41 @@ data class CloudTrack(
                 channels = metadata.tags.channels,
                 encoder = metadata.tags.encoder,
                 size = 0, // Will be updated when file metadata is fetched
-                blake3Hash = metadata.blake3Hash,
+                isDownloaded = false,
+                localPath = null,
+                localUri = null,
                 needsMetadataUpdate = false,
+                syncStatus = SyncStatus.CLOUD_ONLY
             )
         }
     }
 
-    fun toSong(): Song {
-        return Song(
-            id = id,
-            title = title,
-            album = album,
-            artists = artists,
-            composers = composers,
-            albumArtists = albumArtists,
-            genres = genres,
-            trackNumber = trackNumber,
-            trackTotal = trackTotal,
-            discNumber = discNumber,
-            discTotal = discTotal,
-            date = date,
-            year = year,
-            duration = duration,
-            bitrate = bitrate,
-            samplingRate = samplingRate,
-            channels = channels,
-            encoder = encoder,
-            dateModified = lastModified,
-            size = 0,
-            coverFile = null, // Handle artwork separately
-            uri = localUri ?: Uri.parse("cloud://$provider/$cloudFileId"),
-            path = localPath ?: cloudPath,
-            blake3Hash = blake3Hash,
-            cloudFileId = cloudFileId,
-            cloudPath = cloudPath,
-            provider = provider
-        )
-    }
+    fun toSong() = Song(
+        id = id,
+        title = title,
+        album = album,
+        artists = artists,
+        composers = composers,
+        albumArtists = albumArtists,
+        genres = genres,
+        trackNumber = trackNumber,
+        trackTotal = trackTotal,
+        discNumber = discNumber,
+        discTotal = discTotal,
+        date = date,
+        year = year,
+        duration = duration,
+        bitrate = bitrate,
+        samplingRate = samplingRate,
+        channels = channels,
+        encoder = encoder,
+        dateModified = lastModified,
+        size = size,
+        coverFile = null,
+        uri = localUri ?: Uri.parse("cloud://$provider/$cloudFileId"),
+        path = localPath ?: cloudPath,
+        cloudFileId = cloudFileId,
+        cloudPath = cloudPath,
+        provider = provider,
+    )
 } 

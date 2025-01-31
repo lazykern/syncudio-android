@@ -37,9 +37,6 @@ interface CloudTrackStore {
     @Query("SELECT * FROM cloud_tracks WHERE cloudPath = :cloudPath LIMIT 1")
     suspend fun getByCloudPath(cloudPath: String): CloudTrack?
 
-    @Query("SELECT * FROM cloud_tracks WHERE blake3Hash = :hash LIMIT 1")
-    suspend fun getByBlake3Hash(hash: String): CloudTrack?
-
     @Query("SELECT * FROM cloud_tracks WHERE syncStatus = :status")
     suspend fun getByStatus(status: SyncStatus): List<CloudTrack>
 
