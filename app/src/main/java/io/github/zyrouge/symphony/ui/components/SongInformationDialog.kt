@@ -144,6 +144,19 @@ fun SongInformationDialog(context: ViewContext, song: Song, onDismissRequest: ()
                     SimpleDateFormat.getInstance().format(Date(song.dateModified * 1000)),
                 )
             }
+
+            // Add cloud information section
+            if (song.isCloudTrack) {
+                InformationKeyValue("Cloud Provider") {
+                    LongPressCopyableText(context, song.provider ?: "")
+                }
+                InformationKeyValue("Cloud Path") {
+                    LongPressCopyableText(context, song.cloudPath ?: "")
+                }
+                InformationKeyValue("Cloud Status") {
+                    Text(if (song.isCloudTrackDownloaded) "Downloaded" else "Not Downloaded")
+                }
+            }
         },
         onDismissRequest = onDismissRequest,
     )
