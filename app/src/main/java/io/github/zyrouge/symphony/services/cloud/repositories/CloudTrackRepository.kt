@@ -61,15 +61,25 @@ class CloudTrackRepository(private val symphony: Symphony) {
 
     suspend fun fetch() = withContext(Dispatchers.IO) {
         _tracks.value = symphony.database.cloudTrackCache.getAll()
+        Logger.debug(TAG, "Fetched ${_tracks.value.size} cloud tracks")
+        _tracks.value.forEach { track ->
+            Logger.debug(TAG, "Cloud track: id=${track.id}, title=${track.title}, path=${track.cloudPath}, downloaded=${track.isDownloaded}")
+        }
     }
 
     suspend fun insert(vararg tracks: CloudTrack) = withContext(Dispatchers.IO) {
         symphony.database.cloudTrackCache.insert(*tracks)
+        tracks.forEach { track ->
+            Logger.debug(TAG, "Inserted cloud track: id=${track.id}, title=${track.title}, path=${track.cloudPath}")
+        }
         fetch()
     }
 
     suspend fun update(vararg tracks: CloudTrack) = withContext(Dispatchers.IO) {
         symphony.database.cloudTrackCache.update(*tracks)
+        tracks.forEach { track ->
+            Logger.debug(TAG, "Updated cloud track: id=${track.id}, title=${track.title}, path=${track.cloudPath}")
+        }
         fetch()
     }
 
@@ -146,31 +156,31 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     val tags = track["tags"]?.jsonObject
 
                     CloudTrackMetadata(
-                        cloudFileId = track["cloud_file_id"]?.toString() ?: "",
-                        cloudPath = track["cloud_path"]?.toString() ?: "",
-                        relativePath = track["relative_path"]?.toString() ?: "",
-                        lastModified = track["last_modified"]?.toString() ?: "",
-                        lastSync = track["last_sync"]?.toString() ?: "",
-                        provider = track["provider"]?.toString() ?: "",
-                        cloudFolderId = track["cloud_folder_id"]?.toString() ?: "",
+                        cloudFileId = track["cloud_file_id"]?.toString()?.trim('"') ?: "",
+                        cloudPath = track["cloud_path"]?.toString()?.trim('"') ?: "",
+                        relativePath = track["relative_path"]?.toString()?.trim('"') ?: "",
+                        lastModified = track["last_modified"]?.toString()?.trim('"') ?: "",
+                        lastSync = track["last_sync"]?.toString()?.trim('"') ?: "",
+                        provider = track["provider"]?.toString()?.trim('"') ?: "",
+                        cloudFolderId = track["cloud_folder_id"]?.toString()?.trim('"') ?: "",
                         tags = CloudTrackMetadata.Tags(
-                            title = tags?.get("title")?.toString(),
-                            album = tags?.get("album")?.toString(),
+                            title = tags?.get("title")?.toString()?.trim('"'),
+                            album = tags?.get("album")?.toString()?.trim('"'),
                             artists = json.decodeFromJsonElement(tags?.get("artists") ?: JsonObject(emptyMap())),
                             composers = json.decodeFromJsonElement(tags?.get("composers") ?: JsonObject(emptyMap())),
                             albumArtists = json.decodeFromJsonElement(tags?.get("album_artists") ?: JsonObject(emptyMap())),
                             genres = json.decodeFromJsonElement(tags?.get("genres") ?: JsonObject(emptyMap())),
-                            date = tags?.get("date")?.toString(),
-                            year = tags?.get("year")?.toString()?.toIntOrNull(),
-                            duration = tags?.get("duration")?.toString()?.toIntOrNull() ?: 0,
-                            trackNo = tags?.get("track_no")?.toString()?.toIntOrNull(),
-                            trackOf = tags?.get("track_of")?.toString()?.toIntOrNull(),
-                            diskNo = tags?.get("disk_no")?.toString()?.toIntOrNull(),
-                            diskOf = tags?.get("disk_of")?.toString()?.toIntOrNull(),
-                            bitrate = tags?.get("bitrate")?.toString()?.toIntOrNull(),
-                            samplingRate = tags?.get("sampling_rate")?.toString()?.toIntOrNull(),
-                            channels = tags?.get("channels")?.toString()?.toIntOrNull(),
-                            encoder = tags?.get("encoder")?.toString(),
+                            date = tags?.get("date")?.toString()?.trim('"'),
+                            year = tags?.get("year")?.toString()?.trim('"')?.toIntOrNull(),
+                            duration = tags?.get("duration")?.toString()?.trim('"')?.toIntOrNull() ?: 0,
+                            trackNo = tags?.get("track_no")?.toString()?.trim('"')?.toIntOrNull(),
+                            trackOf = tags?.get("track_of")?.toString()?.trim('"')?.toIntOrNull(),
+                            diskNo = tags?.get("disk_no")?.toString()?.trim('"')?.toIntOrNull(),
+                            diskOf = tags?.get("disk_of")?.toString()?.trim('"')?.toIntOrNull(),
+                            bitrate = tags?.get("bitrate")?.toString()?.trim('"')?.toIntOrNull(),
+                            samplingRate = tags?.get("sampling_rate")?.toString()?.trim('"')?.toIntOrNull(),
+                            channels = tags?.get("channels")?.toString()?.trim('"')?.toIntOrNull(),
+                            encoder = tags?.get("encoder")?.toString()?.trim('"'),
                         )
                     )
                 } ?: emptyList()
@@ -199,6 +209,9 @@ class CloudTrackRepository(private val symphony: Symphony) {
     suspend fun scanCloudFolders() = withContext(Dispatchers.IO) {
         try {
             updateProgress(phase = SyncPhase.SCANNING_FOLDERS)
+            // Clear existing cache before scanning
+            clear()
+            
             val mappings = symphony.database.cloudMappings.getAll()
             var processedFiles = 0
             
@@ -245,11 +258,15 @@ class CloudTrackRepository(private val symphony: Symphony) {
         lastModified: Long,
         size: Long
     ) {
-        val fileName = cloudPath.substringAfterLast('/')
+        val fileName = cloudPath.substringAfterLast('/').let { name ->
+            // Remove extension from title
+            val lastDot = name.lastIndexOf('.')
+            if (lastDot > 0) name.substring(0, lastDot) else name
+        }
         val track = CloudTrack(
             id = cloudFileId.hashCode().toString(),  // Same ID generation as CloudTrack.generateId
             cloudFileId = cloudFileId,
-            cloudPath = cloudPath,
+            cloudPath = cloudPath.trim('"'),  // Remove any quotes from path
             provider = provider,
             lastModified = lastModified,
             lastSync = System.currentTimeMillis(),
