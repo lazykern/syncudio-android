@@ -118,7 +118,6 @@ class CloudTrackRepository(private val symphony: Symphony) {
                         cloudPath = track["cloud_path"]?.toString() ?: "",
                         relativePath = track["relative_path"]?.toString() ?: "",
                         lastModified = track["last_modified"]?.toString() ?: "",
-                        lastSync = track["last_sync"]?.toString() ?: "",
                         provider = track["provider"]?.toString() ?: "",
                         cloudFolderId = track["cloud_folder_id"]?.toString() ?: "",
                         tags = CloudTrackMetadata.Tags(

@@ -17,7 +17,6 @@ data class CloudTrack(
     val cloudPath: String,
     val provider: String,
     val lastModified: Long,
-    val lastSync: Long,
     // Metadata
     val title: String,
     val album: String?,
@@ -64,7 +63,6 @@ data class CloudTrack(
                 cloudPath = cloudPath,
                 provider = provider,
                 lastModified = lastModified,
-                lastSync = System.currentTimeMillis(),
                 title = metadata.tags.title ?: "",
                 album = metadata.tags.album,
                 artists = metadata.tags.artists.toSet(),

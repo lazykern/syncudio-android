@@ -6,7 +6,6 @@ data class CloudTrackMetadata(
     val relativePath: String,
     val tags: Tags,
     val lastModified: String,
-    val lastSync: String,
     val provider: String,
     val cloudFolderId: String,
 ) {
