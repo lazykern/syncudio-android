@@ -38,7 +38,6 @@ data class CloudTrack(
     val encoder: String?,
     // File info
     val size: Long,
-    val blake3Hash: String,
     // Cache status
     val isDownloaded: Boolean = false,
     val localPath: String? = null,
@@ -85,7 +84,6 @@ data class CloudTrack(
                 channels = metadata.tags.channels,
                 encoder = metadata.tags.encoder,
                 size = 0, // Will be updated when file metadata is fetched
-                blake3Hash = metadata.blake3Hash,
             )
         }
 
@@ -117,7 +115,6 @@ data class CloudTrack(
             coverFile = null, // Handle artwork separately
             uri = localUri ?: Uri.parse("cloud://$provider/$cloudFileId"),
             path = localPath ?: cloudPath,
-            blake3Hash = blake3Hash,
             cloudFileId = cloudFileId,
             cloudPath = cloudPath,
             provider = provider

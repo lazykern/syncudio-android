@@ -12,7 +12,6 @@ import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.utils.DocumentFileX
 import io.github.zyrouge.symphony.utils.ImagePreserver
 import io.github.zyrouge.symphony.utils.Logger
-import io.github.zyrouge.symphony.utils.SMLBLAKE3
 import io.github.zyrouge.symphony.utils.SimplePath
 import me.zyrouge.symphony.metaphony.AudioMetadataParser
 import java.io.File
@@ -49,7 +48,6 @@ data class Song(
     val coverFile: String?,
     val uri: Uri,
     val path: String,
-    val blake3Hash: String? = null,
     val cloudFileId: String? = null,
     val cloudPath: String? = null,
     val provider: String? = null,
@@ -101,27 +99,6 @@ data class Song(
         return when {
             values.isNotEmpty() -> values.joinToString(", ")
             else -> null
-        }
-    }
-
-    suspend fun computeBlake3Hash(symphony: Symphony): String? {
-        return try {
-            withContext(kotlinx.coroutines.Dispatchers.IO) {
-                symphony.applicationContext.contentResolver
-                    .openInputStream(uri)
-                    ?.use { input ->
-                        val hasher = SMLBLAKE3.newInstance()
-                        val buffer = ByteArray(8192) // 8KB buffer
-                        var bytesRead: Int
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            hasher.update(buffer.copyOfRange(0, bytesRead))
-                        }
-                        hasher.hexdigest()
-                    }
-            }
-        } catch (e: Exception) {
-            Logger.error("Song", "Failed to compute BLAKE3 hash", e)
-            null
         }
     }
 

@@ -6,7 +6,7 @@
     "entities": [
       {
         "tableName": "songs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `date` TEXT, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `dateModified` INTEGER NOT NULL, `size` INTEGER NOT NULL, `coverFile` TEXT, `uri` TEXT NOT NULL, `path` TEXT NOT NULL, `blake3Hash` TEXT, `cloudFileId` TEXT, `cloudPath` TEXT, `provider` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `date` TEXT, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `dateModified` INTEGER NOT NULL, `size` INTEGER NOT NULL, `coverFile` TEXT, `uri` TEXT NOT NULL, `path` TEXT NOT NULL, `cloudFileId` TEXT, `cloudPath` TEXT, `provider` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -147,12 +147,6 @@
             "notNull": true
           },
           {
-            "fieldPath": "blake3Hash",
-            "columnName": "blake3Hash",
-            "affinity": "TEXT",
-            "notNull": false
-          },
-          {
             "fieldPath": "cloudFileId",
             "columnName": "cloudFileId",
             "affinity": "TEXT",
@@ -182,7 +176,7 @@
       },
       {
         "tableName": "cloud_tracks",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `cloudFileId` TEXT NOT NULL, `cloudPath` TEXT NOT NULL, `provider` TEXT NOT NULL, `lastModified` INTEGER NOT NULL, `lastSync` INTEGER NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `size` INTEGER NOT NULL, `blake3Hash` TEXT NOT NULL, `isDownloaded` INTEGER NOT NULL, `localPath` TEXT, `localUri` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `cloudFileId` TEXT NOT NULL, `cloudPath` TEXT NOT NULL, `provider` TEXT NOT NULL, `lastModified` INTEGER NOT NULL, `lastSync` INTEGER NOT NULL, `title` TEXT NOT NULL, `album` TEXT, `artists` TEXT NOT NULL, `composers` TEXT NOT NULL, `albumArtists` TEXT NOT NULL, `genres` TEXT NOT NULL, `trackNumber` INTEGER, `trackTotal` INTEGER, `discNumber` INTEGER, `discTotal` INTEGER, `year` INTEGER, `duration` INTEGER NOT NULL, `bitrate` INTEGER, `samplingRate` INTEGER, `channels` INTEGER, `encoder` TEXT, `size` INTEGER NOT NULL `isDownloaded` INTEGER NOT NULL, `localPath` TEXT, `localUri` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -320,12 +314,6 @@
             "fieldPath": "size",
             "columnName": "size",
             "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "blake3Hash",
-            "columnName": "blake3Hash",
-            "affinity": "TEXT",
             "notNull": true
           },
           {

@@ -144,11 +144,6 @@ fun SongInformationDialog(context: ViewContext, song: Song, onDismissRequest: ()
                     SimpleDateFormat.getInstance().format(Date(song.dateModified * 1000)),
                 )
             }
-            song.blake3Hash?.let {
-                InformationKeyValue("BLAKE3") {
-                    LongPressCopyableText(context, it)
-                }
-            }
         },
         onDismissRequest = onDismissRequest,
     )

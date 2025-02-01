@@ -133,7 +133,6 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     val tags = track["tags"]?.jsonObject
 
                     CloudTrackMetadata(
-                        blake3Hash = track["blake3_hash"]?.toString() ?: "",
                         cloudFileId = track["cloud_file_id"]?.toString() ?: "",
                         cloudPath = track["cloud_path"]?.toString() ?: "",
                         relativePath = track["relative_path"]?.toString() ?: "",
