@@ -84,6 +84,44 @@ data class CloudTrack(
             )
         }
 
+        fun fromCloudFile(
+            cloudFileId: String,
+            cloudPath: String,
+            provider: String,
+            lastModified: Long,
+        ): CloudTrack {
+            val fileName = cloudPath.substringAfterLast('/')
+            val title = fileName.substringBeforeLast('.', fileName)
+
+            return CloudTrack(
+                id = generateId(cloudFileId),
+                cloudFileId = cloudFileId,
+                cloudPath = cloudPath,
+                provider = provider,
+                lastModified = lastModified,
+                // Basic fields from file name/path
+                title = title,
+                // Other fields set to defaults
+                album = null,
+                artists = emptySet(),
+                composers = emptySet(),
+                albumArtists = emptySet(),
+                genres = emptySet(),
+                trackNumber = null,
+                trackTotal = null,
+                discNumber = null,
+                discTotal = null,
+                date = null,
+                year = null,
+                duration = 0,
+                bitrate = null,
+                samplingRate = null,
+                channels = null,
+                encoder = null,
+                size = 0,
+            )
+        }
+
         private fun generateId(cloudFileId: String) = cloudFileId.hashCode().toString()
     }
 

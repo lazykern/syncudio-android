@@ -63,6 +63,11 @@ class AudioMetadataParser private constructor() {
             System.loadLibrary("metaphony")
         }
 
+        val SUPPORTED_AUDIO_EXTENSIONS = setOf(
+            "mp3", "aac", "ogg", "oga", "flac", "m4a", "m4b", "wav", "wma", 
+            "aif", "aiff", "ape", "opus", "wv"
+        )
+
         fun parse(filename: String, fd: Int): AudioMetadata? {
             val parser = AudioMetadataParser()
             val success = parser.readMetadata(filename, fd)

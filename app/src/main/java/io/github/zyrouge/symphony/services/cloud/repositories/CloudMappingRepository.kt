@@ -2,12 +2,17 @@ package io.github.zyrouge.symphony.services.cloud.repositories
 
 import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.services.cloud.CloudFolderMapping
+import io.github.zyrouge.symphony.services.cloud.CloudTrack
 import io.github.zyrouge.symphony.utils.Logger
 import io.github.zyrouge.symphony.utils.SimplePath
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
+import com.dropbox.core.v2.files.FileMetadata
+import me.zyrouge.symphony.metaphony.AudioMetadataParser
 
 class CloudMappingRepository(private val symphony: Symphony) {
     private val cache = ConcurrentHashMap<String, CloudFolderMapping>()
@@ -103,6 +108,48 @@ class CloudMappingRepository(private val symphony: Symphony) {
             emptyList()
         }
         emitCount()
+    }
+
+    suspend fun scanForAudioTracks(mappingId: String): Result<List<CloudTrack>> = withContext(Dispatchers.IO) {
+        try {
+            val mapping = get(mappingId) ?: return@withContext Result.failure(
+                Exception("No mapping found with ID: $mappingId")
+            )
+
+            when (mapping.provider.lowercase()) {
+                "dropbox" -> {
+                    val result = symphony.dropbox.listFolder(mapping.cloudFolderId)
+                        .getOrNull()
+                        ?: return@withContext Result.failure(
+                            Exception("Failed to list files in cloud folder: ${mapping.cloudFolderId}")
+                        )
+
+                    val audioFiles = result.entries
+                        .filterIsInstance<FileMetadata>()
+                        .filter { entry ->
+                            val extension = entry.name.substringAfterLast('.', "").lowercase()
+                            AudioMetadataParser.SUPPORTED_AUDIO_EXTENSIONS.contains(extension)
+                        }
+
+                    val tracks = audioFiles.map { entry ->
+                        CloudTrack.fromCloudFile(
+                            cloudFileId = entry.id,
+                            cloudPath = "${mapping.cloudPath}/${entry.name}",
+                            provider = mapping.provider,
+                            lastModified = entry.serverModified.time,
+                        )
+                    }
+
+                    Result.success(tracks)
+                }
+                else -> Result.failure(
+                    Exception("Unsupported cloud provider: ${mapping.provider}")
+                )
+            }
+        } catch (err: Exception) {
+            Logger.error(TAG, "scanForAudioTracks failed", err)
+            Result.failure(err)
+        }
     }
 
     companion object {
