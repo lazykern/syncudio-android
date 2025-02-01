@@ -39,7 +39,6 @@ data class CloudTrack(
     // File info
     val size: Long,
     // Cache status
-    val isDownloaded: Boolean = false,
     val localPath: String? = null,
     val localUri: Uri? = null,
 ) {

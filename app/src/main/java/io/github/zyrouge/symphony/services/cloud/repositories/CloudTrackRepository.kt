@@ -79,25 +79,6 @@ class CloudTrackRepository(private val symphony: Symphony) {
         symphony.database.cloudTrackCache.getByCloudFileId(cloudFileId)
     }
 
-    suspend fun getDownloaded(): List<CloudTrack> = withContext(Dispatchers.IO) {
-        symphony.database.cloudTrackCache.getDownloaded()
-    }
-
-    suspend fun updateDownloadStatus(
-        track: CloudTrack,
-        isDownloaded: Boolean,
-        localPath: String? = null,
-        localUri: Uri? = null,
-    ) = withContext(Dispatchers.IO) {
-        update(
-            track.copy(
-                isDownloaded = isDownloaded,
-                localPath = localPath,
-                localUri = localUri,
-            )
-        )
-    }
-
     suspend fun updateFromMetadata(
         cloudFileId: String,
         cloudPath: String,

@@ -29,7 +29,4 @@ interface CloudTrackStore {
 
     @Query("SELECT * FROM cloud_tracks WHERE cloudFileId = :cloudFileId")
     suspend fun getByCloudFileId(cloudFileId: String): CloudTrack?
-
-    @Query("SELECT * FROM cloud_tracks WHERE isDownloaded = 1")
-    suspend fun getDownloaded(): List<CloudTrack>
 } 
