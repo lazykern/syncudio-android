@@ -34,6 +34,7 @@ import io.github.zyrouge.symphony.ui.helpers.ViewContext
 import kotlinx.coroutines.launch
 import io.github.zyrouge.symphony.ui.components.DropboxFolderPickerDialog
 import io.github.zyrouge.symphony.services.cloud.CloudFolderMapping
+import io.github.zyrouge.symphony.utils.Logger
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -66,7 +67,32 @@ fun CloudStorageSettingsView(context: ViewContext) {
                     }
                 },
                 actions = {
-                    IconButtonPlaceholder()
+                    var isSyncing by remember { mutableStateOf(false) }
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                isSyncing = true
+                                context.symphony.cloud.tracks.scanAndIntegrateCloudTracks()
+                                    .onSuccess { tracks ->
+                                        Logger.debug("CloudStorageSettings", "Successfully integrated ${tracks.size} tracks")
+                                    }
+                                    .onFailure { error ->
+                                        Logger.error("CloudStorageSettings", "Failed to integrate tracks", error)
+                                    }
+                                isSyncing = false
+                            }
+                        },
+                        enabled = !isSyncing && authState is DropboxAuthState.Authenticated
+                    ) {
+                        if (isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.CloudSync, "Sync All")
+                        }
+                    }
                 },
             )
         },

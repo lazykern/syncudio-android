@@ -197,6 +197,85 @@ class CloudTrackRepository(private val symphony: Symphony) {
         }
     }
 
+    suspend fun scanAndIntegrateCloudTracks(): Result<List<CloudTrack>> = withContext(Dispatchers.IO) {
+        try {
+            Logger.debug(TAG, "Starting cloud tracks integration")
+            startUpdate()
+
+            // 1. Scan all mappings for tracks
+            val scannedTracksResult = symphony.cloud.mapping.scanAllMappingsForAudioTracks()
+            if (scannedTracksResult.isFailure) {
+                return@withContext Result.failure(
+                    scannedTracksResult.exceptionOrNull() ?: Exception("Failed to scan mappings")
+                )
+            }
+            val scannedTracks = scannedTracksResult.getOrNull()!!
+            Logger.debug(TAG, "Found ${scannedTracks.size} tracks from direct scan")
+
+            // 2. Read metadata tracks
+            val metadataTracksResult = readCloudMetadataTracks()
+            if (metadataTracksResult.isFailure) {
+                return@withContext Result.failure(
+                    metadataTracksResult.exceptionOrNull() ?: Exception("Failed to read metadata")
+                )
+            }
+            val metadataTracks = metadataTracksResult.getOrNull()!!
+            Logger.debug(TAG, "Found ${metadataTracks.size} tracks from metadata")
+
+            // 3. Create lookup maps
+            val scannedTracksMap = scannedTracks.associateBy { it.cloudFileId }
+            val metadataTracksMap = metadataTracks.associateBy { it.cloudFileId }
+
+            // 4. Integrate tracks
+            val integratedTracks = mutableListOf<CloudTrack>()
+
+            // Process tracks found in both sources
+            val commonIds = scannedTracksMap.keys.intersect(metadataTracksMap.keys)
+            Logger.debug(TAG, "Found ${commonIds.size} tracks in both sources")
+            
+            commonIds.forEach { cloudFileId ->
+                val scannedTrack = scannedTracksMap[cloudFileId]!!
+                val metadataTrack = metadataTracksMap[cloudFileId]!!
+                // Use metadata for rich info, but keep scan info for file status
+                integratedTracks.add(metadataTrack.copy(
+                    lastModified = scannedTrack.lastModified,
+                    size = scannedTrack.size
+                ))
+            }
+
+            // Process tracks only in scan
+            val scanOnlyIds = scannedTracksMap.keys - metadataTracksMap.keys
+            Logger.debug(TAG, "Found ${scanOnlyIds.size} tracks only in scan")
+            scanOnlyIds.forEach { cloudFileId ->
+                val track = scannedTracksMap[cloudFileId]!!
+                // TODO: Mark these tracks as needing metadata update
+                integratedTracks.add(track)
+            }
+
+            // Process tracks only in metadata
+            val metadataOnlyIds = metadataTracksMap.keys - scannedTracksMap.keys
+            Logger.debug(TAG, "Found ${metadataOnlyIds.size} tracks only in metadata")
+            metadataOnlyIds.forEach { cloudFileId ->
+                val track = metadataTracksMap[cloudFileId]!!
+                // TODO: Mark these tracks as needing verification
+                integratedTracks.add(track)
+            }
+
+            Logger.debug(TAG, "Integrated total of ${integratedTracks.size} tracks")
+
+            // 5. Update database
+            clear() // Clear existing tracks
+            insert(*integratedTracks.toTypedArray())
+            
+            endUpdate()
+            Result.success(integratedTracks)
+        } catch (e: Exception) {
+            Logger.error(TAG, "Failed to integrate cloud tracks", e)
+            endUpdate()
+            Result.failure(e)
+        }
+    }
+
     companion object {
         private const val TAG = "CloudTrackRepository"
     }

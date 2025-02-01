@@ -13,6 +13,8 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import com.dropbox.core.v2.files.FileMetadata
 import me.zyrouge.symphony.metaphony.AudioMetadataParser
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 
 class CloudMappingRepository(private val symphony: Symphony) {
     private val cache = ConcurrentHashMap<String, CloudFolderMapping>()
@@ -171,6 +173,47 @@ class CloudMappingRepository(private val symphony: Symphony) {
         } catch (err: Exception) {
             Logger.error(TAG, "scanForAudioTracks failed", err)
             Result.failure(err)
+        }
+    }
+
+    suspend fun scanAllMappingsForAudioTracks(): Result<List<CloudTrack>> = withContext(Dispatchers.IO) {
+        try {
+            Logger.debug(TAG, "Starting scan for all mappings")
+            val mappingIds = all.value
+            if (mappingIds.isEmpty()) {
+                Logger.warn(TAG, "No mappings found to scan")
+                return@withContext Result.success(emptyList())
+            }
+            Logger.debug(TAG, "Found ${mappingIds.size} mappings to scan")
+
+            // Launch parallel scans for each mapping
+            val results = mappingIds.map { mappingId ->
+                async {
+                    val mapping = get(mappingId)
+                    if (mapping == null) {
+                        Logger.warn(TAG, "Mapping not found: $mappingId")
+                        emptyList()
+                    } else {
+                        scanForAudioTracks(mappingId)
+                            .onSuccess { tracks ->
+                                Logger.debug(TAG, "Successfully scanned mapping ${mapping.cloudPath}: found ${tracks.size} tracks")
+                            }
+                            .onFailure { error ->
+                                Logger.error(TAG, "Failed to scan mapping ${mapping.cloudPath}", error)
+                            }
+                            .getOrDefault(emptyList())
+                    }
+                }
+            }.awaitAll()
+
+            // Combine all results
+            val allTracks = results.flatten()
+            Logger.debug(TAG, "Completed scanning all mappings. Total tracks found: ${allTracks.size}")
+
+            Result.success(allTracks)
+        } catch (e: Exception) {
+            Logger.error(TAG, "Failed to scan all mappings", e)
+            Result.failure(e)
         }
     }
 
