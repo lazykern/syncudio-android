@@ -96,30 +96,30 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     val tags = track["tags"]?.jsonObject
 
                     CloudTrackMetadata(
-                        cloudFileId = track["cloud_file_id"]?.toString() ?: "",
-                        cloudPath = track["cloud_path"]?.toString() ?: "",
-                        relativePath = track["relative_path"]?.toString() ?: "",
-                        lastModified = track["last_modified"]?.toString() ?: "",
-                        provider = track["provider"]?.toString() ?: "",
-                        cloudFolderId = track["cloud_folder_id"]?.toString() ?: "",
+                        cloudFileId = track["cloud_file_id"]?.toString()?.trim('"') ?: "",
+                        cloudPath = track["cloud_path"]?.toString()?.trim('"') ?: "",
+                        relativePath = track["relative_path"]?.toString()?.trim('"') ?: "",
+                        lastModified = track["last_modified"]?.toString()?.trim('"') ?: "",
+                        provider = track["provider"]?.toString()?.trim('"') ?: "",
+                        cloudFolderId = track["cloud_folder_id"]?.toString()?.trim('"') ?: "",
                         tags = CloudTrackMetadata.Tags(
-                            title = tags?.get("title")?.toString(),
-                            album = tags?.get("album")?.toString(),
+                            title = tags?.get("title")?.toString()?.trim('"'),
+                            album = tags?.get("album")?.toString()?.trim('"'),
                             artists = json.decodeFromJsonElement(tags?.get("artists") ?: JsonObject(emptyMap())),
                             composers = json.decodeFromJsonElement(tags?.get("composers") ?: JsonObject(emptyMap())),
                             albumArtists = json.decodeFromJsonElement(tags?.get("album_artists") ?: JsonObject(emptyMap())),
                             genres = json.decodeFromJsonElement(tags?.get("genres") ?: JsonObject(emptyMap())),
-                            date = tags?.get("date")?.toString(),
-                            year = tags?.get("year")?.toString()?.toIntOrNull(),
-                            duration = tags?.get("duration")?.toString()?.toIntOrNull() ?: 0,
-                            trackNo = tags?.get("track_no")?.toString()?.toIntOrNull(),
-                            trackOf = tags?.get("track_of")?.toString()?.toIntOrNull(),
-                            diskNo = tags?.get("disk_no")?.toString()?.toIntOrNull(),
-                            diskOf = tags?.get("disk_of")?.toString()?.toIntOrNull(),
-                            bitrate = tags?.get("bitrate")?.toString()?.toIntOrNull(),
-                            samplingRate = tags?.get("sampling_rate")?.toString()?.toIntOrNull(),
-                            channels = tags?.get("channels")?.toString()?.toIntOrNull(),
-                            encoder = tags?.get("encoder")?.toString(),
+                            date = tags?.get("date")?.toString()?.trim('"'),
+                            year = tags?.get("year")?.toString()?.trim('"')?.toIntOrNull(),
+                            duration = tags?.get("duration")?.toString()?.trim('"')?.toIntOrNull() ?: 0,
+                            trackNo = tags?.get("track_no")?.toString()?.trim('"')?.toIntOrNull(),
+                            trackOf = tags?.get("track_of")?.toString()?.trim('"')?.toIntOrNull(),
+                            diskNo = tags?.get("disk_no")?.toString()?.trim('"')?.toIntOrNull(),
+                            diskOf = tags?.get("disk_of")?.toString()?.trim('"')?.toIntOrNull(),
+                            bitrate = tags?.get("bitrate")?.toString()?.trim('"')?.toIntOrNull(),
+                            samplingRate = tags?.get("sampling_rate")?.toString()?.trim('"')?.toIntOrNull(),
+                            channels = tags?.get("channels")?.toString()?.trim('"')?.toIntOrNull(),
+                            encoder = tags?.get("encoder")?.toString()?.trim('"'),
                         )
                     )
                 } ?: emptyList()
@@ -127,6 +127,72 @@ class CloudTrackRepository(private val symphony: Symphony) {
             Result.success(tracks)
         } catch (e: Exception) {
             Logger.error(TAG, "Failed to parse metadata JSON", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun readCloudMetadataTracks(): Result<List<CloudTrack>> = withContext(Dispatchers.IO) {
+        try {
+            Logger.debug(TAG, "Starting to read cloud metadata tracks")
+            
+            // 1. Download metadata file
+            val content = symphony.dropbox.downloadMetadataFile()
+                ?: return@withContext Result.failure(Exception("Failed to download metadata file"))
+            Logger.debug(TAG, "Downloaded metadata file")
+
+            // 2. Parse metadata JSON
+            val metadataResult = parseMetadataJson(content)
+            if (metadataResult.isFailure) {
+                return@withContext Result.failure(metadataResult.exceptionOrNull() 
+                    ?: Exception("Failed to parse metadata"))
+            }
+            val metadataTracks = metadataResult.getOrNull()!!
+            Logger.debug(TAG, "Parsed ${metadataTracks.size} tracks from metadata")
+
+            // 3. Get all mappings
+            val mappingIds = symphony.cloud.mapping.all.value
+            if (mappingIds.isEmpty()) {
+                Logger.warn(TAG, "No cloud folder mappings found")
+                return@withContext Result.success(emptyList())
+            }
+            val mappings = mappingIds.mapNotNull { id -> symphony.cloud.mapping.get(id) }
+            Logger.debug(TAG, "Found ${mappings.size} cloud folder mappings")
+
+            // 4. Convert metadata to tracks with matching mappings
+            val tracks = metadataTracks.mapNotNull { metadata ->
+                // Find matching mapping based on cloud folder ID
+                val mapping = mappings.find { mapping -> 
+                    // Normalize paths by removing leading slashes and trimming before comparison
+                    Logger.debug(TAG, "Checking mapping: ${mapping.cloudPath} against ${metadata.cloudPath}")
+                    val normalizedMetadataPath = metadata.cloudPath.removePrefix("/").trim()
+                    val normalizedMappingPath = mapping.cloudPath.removePrefix("/").trim()
+                    normalizedMetadataPath.startsWith(normalizedMappingPath)
+                } ?: run {
+                    Logger.warn(TAG, "No mapping found for track: \"${metadata.cloudPath}\"")
+                    return@mapNotNull null
+                }
+
+                try {
+                    CloudTrack.fromMetadata(
+                        cloudFileId = metadata.cloudFileId,
+                        cloudPath = metadata.cloudPath,
+                        provider = metadata.provider,
+                        lastModified = parseTimestamp(metadata.lastModified),
+                        mapping = mapping,
+                        metadata = metadata
+                    ).also {
+                        Logger.debug(TAG, "Created track: id=${it.id}, title=${it.title}, local=${it.localPath}, localString=${it.localPathString}")
+                    }
+                } catch (e: Exception) {
+                    Logger.error(TAG, "Failed to create track from metadata: ${metadata.cloudPath}", e)
+                    null
+                }
+            }
+            Logger.debug(TAG, "Created ${tracks.size} cloud tracks from metadata")
+
+            Result.success(tracks)
+        } catch (e: Exception) {
+            Logger.error(TAG, "Failed to read cloud metadata tracks", e)
             Result.failure(e)
         }
     }

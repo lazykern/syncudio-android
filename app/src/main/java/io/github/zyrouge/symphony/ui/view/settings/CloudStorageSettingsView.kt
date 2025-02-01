@@ -326,20 +326,27 @@ private fun CloudMappingCard(
                                 error = null
                                 context.symphony.cloud.mapping.scanForAudioTracks(mapping.id)
                                     .onSuccess { tracks ->
-                                        // TODO: Store tracks in database
-                                        isScanning = false
+                                        // Read metadata tracks
+                                        context.symphony.cloud.tracks.readCloudMetadataTracks()
+                                            .onSuccess { metadataTracks ->
+                                                context.symphony.cloud.tracks.insert(*metadataTracks.toTypedArray())
+                                                error = null
+                                            }
+                                            .onFailure { err ->
+                                                error = "Failed to read metadata: ${err.message}"
+                                            }
                                     }
                                     .onFailure { err ->
                                         error = err.message
-                                        isScanning = false
                                     }
+                                isScanning = false
                             }
                         },
                         enabled = !isScanning
                     ) {
                         if (isScanning) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(24.dp),
                                 strokeWidth = 2.dp
                             )
                         } else {
