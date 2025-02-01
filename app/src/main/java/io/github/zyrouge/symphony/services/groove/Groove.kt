@@ -34,6 +34,7 @@ class Groove(private val symphony: Symphony) : Symphony.Hooks {
     val genre = GenreRepository(symphony)
     val playlist = PlaylistRepository(symphony)
     val exposer = MediaExposer(symphony)
+    val hashManager = HashManager(symphony)
 
     suspend fun ready() = readyDeferred.await()
 
@@ -44,6 +45,10 @@ class Groove(private val symphony: Symphony) : Symphony.Hooks {
                 async { playlist.fetch() },
             )
         }.join()
+        // Start computing hashes after scan completes
+        coroutineScope.launch {
+            hashManager.computeMissingHashes()
+        }
     }
 
     private suspend fun reset() {

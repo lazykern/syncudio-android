@@ -17,10 +17,11 @@ import io.github.zyrouge.symphony.utils.RoomConvertors
 
 @Database(
     entities = [Song::class, CloudTrack::class],
-    version = 3,
+    version = 4,
     autoMigrations = [
         AutoMigration(1, 2, CacheDatabase.Migration1To2::class),
-        AutoMigration(2, 3)
+        AutoMigration(2, 3),
+        AutoMigration(3, 4)
     ]
 )
 @TypeConverters(RoomConvertors::class)
