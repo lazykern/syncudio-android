@@ -5,6 +5,7 @@ import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import io.github.zyrouge.symphony.services.groove.Song
+import io.github.zyrouge.symphony.utils.SimplePath
 import java.time.LocalDate
 
 @Immutable
@@ -38,8 +39,8 @@ data class CloudTrack(
     // File info
     val size: Long,
     // Cache status
-    val localPath: String? = null,
-    val localUri: Uri? = null,
+    val localPath: String,
+    val localPathString: String,
 ) {
     companion object {
         fun fromMetadata(
@@ -47,6 +48,7 @@ data class CloudTrack(
             cloudPath: String,
             provider: String,
             lastModified: Long,
+            mapping: CloudFolderMapping,
             metadata: CloudTrackMetadata
         ): CloudTrack {
             val date = metadata.tags.date?.let {
@@ -56,6 +58,10 @@ data class CloudTrack(
                     null
                 }
             }
+
+            val relativePath = cloudPath.removePrefix(mapping.cloudPath).trimStart('/')
+            val localPath = "${mapping.localPath}/$relativePath"
+            val localPathString = SimplePath(localPath).pathString.replaceFirst("/", ":")
 
             return CloudTrack(
                 id = generateId(cloudFileId),
@@ -81,6 +87,8 @@ data class CloudTrack(
                 channels = metadata.tags.channels,
                 encoder = metadata.tags.encoder,
                 size = 0, // Will be updated when file metadata is fetched
+                localPath = localPath,
+                localPathString = localPathString,
             )
         }
 
@@ -89,9 +97,14 @@ data class CloudTrack(
             cloudPath: String,
             provider: String,
             lastModified: Long,
+            mapping: CloudFolderMapping
         ): CloudTrack {
             val fileName = cloudPath.substringAfterLast('/')
             val title = fileName.substringBeforeLast('.', fileName)
+
+            val relativePath = cloudPath.removePrefix(mapping.cloudPath).trimStart('/')
+            val localPath = "${mapping.localPath}/$relativePath"
+            val localPathString = SimplePath(localPath).pathString.replaceFirst("/", ":")
 
             return CloudTrack(
                 id = generateId(cloudFileId),
@@ -99,9 +112,7 @@ data class CloudTrack(
                 cloudPath = cloudPath,
                 provider = provider,
                 lastModified = lastModified,
-                // Basic fields from file name/path
                 title = title,
-                // Other fields set to defaults
                 album = null,
                 artists = emptySet(),
                 composers = emptySet(),
@@ -119,40 +130,11 @@ data class CloudTrack(
                 channels = null,
                 encoder = null,
                 size = 0,
+                localPath = localPath,
+                localPathString = localPathString,
             )
         }
 
         private fun generateId(cloudFileId: String) = cloudFileId.hashCode().toString()
-    }
-
-    fun toSong(): Song {
-        return Song(
-            id = id,
-            title = title,
-            album = album,
-            artists = artists,
-            composers = composers,
-            albumArtists = albumArtists,
-            genres = genres,
-            trackNumber = trackNumber,
-            trackTotal = trackTotal,
-            discNumber = discNumber,
-            discTotal = discTotal,
-            date = date,
-            year = year,
-            duration = duration,
-            bitrate = bitrate,
-            samplingRate = samplingRate,
-            channels = channels,
-            encoder = encoder,
-            dateModified = lastModified,
-            size = 0,
-            coverFile = null, // Handle artwork separately
-            uri = localUri ?: Uri.parse("cloud://$provider/$cloudFileId"),
-            path = localPath ?: cloudPath,
-            cloudFileId = cloudFileId,
-            cloudPath = cloudPath,
-            provider = provider
-        )
     }
 } 

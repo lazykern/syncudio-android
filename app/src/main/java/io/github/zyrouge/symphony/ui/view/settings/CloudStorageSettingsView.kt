@@ -279,6 +279,10 @@ private fun CloudMappingCard(
     mapping: CloudFolderMapping,
     onDelete: () -> Unit,
 ) {
+    var isScanning by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
@@ -311,13 +315,50 @@ private fun CloudMappingCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                IconButton(
-                    onClick = onDelete,
-                    colors = IconButtonDefaults.iconButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(Icons.Default.Delete, null)
+                    // Scan button
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                isScanning = true
+                                error = null
+                                context.symphony.cloud.mapping.scanForAudioTracks(mapping.id)
+                                    .onSuccess { tracks ->
+                                        // TODO: Store tracks in database
+                                        isScanning = false
+                                    }
+                                    .onFailure { err ->
+                                        error = err.message
+                                        isScanning = false
+                                    }
+                            }
+                        },
+                        enabled = !isScanning
+                    ) {
+                        if (isScanning) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.CloudSync,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    // Delete button
+                    IconButton(
+                        onClick = onDelete,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(Icons.Default.Delete, null)
+                    }
                 }
             }
 
@@ -359,6 +400,15 @@ private fun CloudMappingCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+
+            // Error message
+            error?.let { errorMessage ->
+                Text(
+                    errorMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
     }

@@ -79,24 +79,6 @@ class CloudTrackRepository(private val symphony: Symphony) {
         symphony.database.cloudTrackCache.getByCloudFileId(cloudFileId)
     }
 
-    suspend fun updateFromMetadata(
-        cloudFileId: String,
-        cloudPath: String,
-        provider: String,
-        lastModified: Long,
-        metadata: CloudTrackMetadata,
-    ) = withContext(Dispatchers.IO) {
-        val track = CloudTrack.fromMetadata(
-            cloudFileId = cloudFileId,
-            cloudPath = cloudPath,
-            provider = provider,
-            lastModified = lastModified,
-            metadata = metadata,
-        )
-        insert(track)
-        track
-    }
-
     suspend fun startUpdate() {
         _isUpdating.value = true
     }
@@ -146,46 +128,6 @@ class CloudTrackRepository(private val symphony: Symphony) {
         } catch (e: Exception) {
             Logger.error(TAG, "Failed to parse metadata JSON", e)
             Result.failure(e)
-        }
-    }
-
-    suspend fun syncMetadata() = withContext(Dispatchers.IO) {
-        try {
-            startUpdate()
-            val content = symphony.dropbox.downloadMetadataFile()
-            if (content == null) {
-                Logger.debug(TAG, "No metadata file found")
-                return@withContext Result.failure(Exception("No metadata file found"))
-            }
-
-            val metadataResult = parseMetadataJson(content)
-            if (metadataResult.isFailure) {
-                return@withContext metadataResult
-            }
-
-            val tracks = metadataResult.getOrNull() ?: emptyList()
-            Logger.debug(TAG, "Parsed ${tracks.size} tracks from metadata")
-
-            // Clear existing tracks and insert new ones
-            clear()
-            tracks.forEach { metadata ->
-                val lastModified = parseTimestamp(metadata.lastModified)
-                
-                updateFromMetadata(
-                    cloudFileId = metadata.cloudFileId,
-                    cloudPath = metadata.cloudPath,
-                    provider = metadata.provider,
-                    lastModified = lastModified,
-                    metadata = metadata,
-                )
-            }
-
-            Result.success(tracks)
-        } catch (e: Exception) {
-            Logger.error(TAG, "Failed to sync metadata", e)
-            Result.failure(e)
-        } finally {
-            endUpdate()
         }
     }
 

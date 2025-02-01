@@ -112,39 +112,61 @@ class CloudMappingRepository(private val symphony: Symphony) {
 
     suspend fun scanForAudioTracks(mappingId: String): Result<List<CloudTrack>> = withContext(Dispatchers.IO) {
         try {
+            Logger.debug(TAG, "Starting scan for mapping ID: $mappingId")
             val mapping = get(mappingId) ?: return@withContext Result.failure(
                 Exception("No mapping found with ID: $mappingId")
             )
+            Logger.debug(TAG, "Found mapping: local=${mapping.getLocalPathString()}, cloud=${mapping.getCloudPathString()}")
 
             when (mapping.provider.lowercase()) {
                 "dropbox" -> {
-                    val result = symphony.dropbox.listFolder(mapping.cloudFolderId)
+                    Logger.debug(TAG, "Listing files recursively from Dropbox folder: ${mapping.cloudFolderId}")
+                    val result = symphony.dropbox.listFolder(mapping.cloudFolderId, recursive = true)
                         .getOrNull()
                         ?: return@withContext Result.failure(
                             Exception("Failed to list files in cloud folder: ${mapping.cloudFolderId}")
                         )
 
+                    Logger.debug(TAG, "Found ${result.entries.size} files in folder (including subfolders)")
                     val audioFiles = result.entries
                         .filterIsInstance<FileMetadata>()
                         .filter { entry ->
+                            if (entry.pathDisplay == null) {
+                                Logger.warn(TAG, "Skipping file with null pathDisplay: ${entry.name}")
+                                return@filter false
+                            }
                             val extension = entry.name.substringAfterLast('.', "").lowercase()
-                            AudioMetadataParser.SUPPORTED_AUDIO_EXTENSIONS.contains(extension)
+                            val isAudio = AudioMetadataParser.SUPPORTED_AUDIO_EXTENSIONS.contains(extension)
+                            if (isAudio) {
+                                val localPath = "${mapping.localPath}/${entry.pathDisplay!!.removePrefix(mapping.cloudPath)}"
+                                Logger.debug(TAG, "Found audio file: cloud=${entry.pathDisplay}, local=$localPath")
+                            }
+                            isAudio
                         }
+                    Logger.debug(TAG, "Filtered ${audioFiles.size} audio files")
 
                     val tracks = audioFiles.map { entry ->
+                        val localPath = "${mapping.localPath}/${entry.pathDisplay!!.removePrefix(mapping.cloudPath)}"
                         CloudTrack.fromCloudFile(
                             cloudFileId = entry.id,
-                            cloudPath = "${mapping.cloudPath}/${entry.name}",
+                            cloudPath = entry.pathDisplay!!,
                             provider = mapping.provider,
                             lastModified = entry.serverModified.time,
-                        )
+                            mapping = mapping,
+                        ).also {
+                            Logger.debug(TAG, "Created track: id=${it.id}, title=${it.title}, local=${it.localPath}, localString=${it.localPathString}")
+                        }
                     }
+                    Logger.debug(TAG, "Created ${tracks.size} cloud tracks")
 
                     Result.success(tracks)
                 }
-                else -> Result.failure(
-                    Exception("Unsupported cloud provider: ${mapping.provider}")
-                )
+                else -> {
+                    Logger.error(TAG, "Unsupported cloud provider: ${mapping.provider}")
+                    Result.failure(
+                        Exception("Unsupported cloud provider: ${mapping.provider}")
+                    )
+                }
             }
         } catch (err: Exception) {
             Logger.error(TAG, "scanForAudioTracks failed", err)
