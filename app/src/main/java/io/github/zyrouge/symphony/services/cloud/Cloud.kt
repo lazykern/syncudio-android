@@ -51,6 +51,7 @@ class Cloud(private val symphony: Symphony) : Symphony.Hooks {
     data class FetchOptions(
         val resetInMemoryCache: Boolean = false,
         val resetPersistentCache: Boolean = false,
+        val scanAfterFetch: Boolean = true,
     )
 
     fun fetch(options: FetchOptions) {
@@ -63,13 +64,19 @@ class Cloud(private val symphony: Symphony) : Symphony.Hooks {
                 // Clear any persistent cache if needed
             }
             fetch()
+            
+            // Scan and integrate cloud tracks after fetching if requested
+            if (options.scanAfterFetch) {
+                tracks.scanAndIntegrateCloudTracks()
+            }
         }
     }
 
     override fun onSymphonyReady() {
         Logger.debug(TAG, "onSymphonyReady called")
         coroutineScope.launch {
-            fetch()
+            // Initial fetch without scanning since Groove will trigger it
+            fetch(FetchOptions(scanAfterFetch = false))
             readyDeferred.complete(true)
         }
     }

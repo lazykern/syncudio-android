@@ -9,6 +9,7 @@ import io.github.zyrouge.symphony.services.cloud.CloudTrack
 import io.github.zyrouge.symphony.services.cloud.CloudTrackMetadata
 import io.github.zyrouge.symphony.services.groove.Groove
 import io.github.zyrouge.symphony.services.groove.MediaExposer
+import io.github.zyrouge.symphony.services.groove.Song
 import io.github.zyrouge.symphony.utils.DocumentFileX
 import io.github.zyrouge.symphony.utils.Logger
 import io.github.zyrouge.symphony.utils.SimplePath
@@ -346,9 +347,47 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     Logger.debug(TAG, "Download completed for track $cloudFileId")
                     _downloadProgress.update { it - cloudFileId }
                     
-                    // Clear song cache and trigger a rescan
-                    symphony.database.songCache.clear()  // Clear song cache
-                    symphony.groove.fetch(Groove.FetchOptions())  // This will rescan media folders including the downloaded file
+                    // Create a new Song with metadata from the downloaded file
+                    val documentFile = DocumentFileX.fromSingleUri(symphony.applicationContext, file.uri)
+                    if (documentFile != null) {
+                        val path = SimplePath(track.localPathString)
+                        val parseOptions = Song.ParseOptions.create(symphony)
+                        val song = try {
+                            Song.parse(path, documentFile, parseOptions)
+                        } catch (e: Exception) {
+                            Logger.error(TAG, "Failed to parse downloaded file metadata", e)
+                            null
+                        }
+
+                        if (song != null) {
+                            // Update the song with cloud information
+                            val updatedSong = song.copy(
+                                cloudFileId = track.cloudFileId,
+                                cloudPath = track.cloudPath,
+                                provider = track.provider
+                            )
+
+                            // Remove existing song from cache if it exists
+                            symphony.database.songCache.getByPath(track.localPathString)?.let { existingSong ->
+                                symphony.database.songCache.delete(existingSong.id)
+                                // Remove from explorer
+                                symphony.groove.song.explorer.removeChildFile(SimplePath(existingSong.path))
+                            }
+
+                            // Update the database
+                            symphony.database.songCache.insert(updatedSong)
+                            // Notify the song repository
+                            symphony.groove.song.onSong(updatedSong)
+                            Logger.debug(TAG, "Updated song metadata: ${updatedSong.title}")
+                        }
+                    }
+
+                    // Reset state before scanning
+                    symphony.groove.exposer.reset()  // Reset media exposer state
+                    symphony.groove.song.reset()     // Reset song repository state
+                    
+                    // Trigger a full rescan to pick up the downloaded file
+                    symphony.groove.fetch(Groove.FetchOptions())
                     Logger.debug(TAG, "File downloaded and media scan triggered: ${track.localPath}")
                     return@withContext Result.success(Unit)
                 }.onFailure { error ->

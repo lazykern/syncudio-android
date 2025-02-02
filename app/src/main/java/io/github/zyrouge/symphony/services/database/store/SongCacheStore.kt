@@ -26,4 +26,7 @@ interface SongCacheStore {
 
     @Query("SELECT * FROM songs")
     suspend fun entriesPathMapped(): Map<@MapColumn("path") String, Song>
+
+    @Query("SELECT * FROM songs WHERE path = :path")
+    suspend fun getByPath(path: String): Song?
 }

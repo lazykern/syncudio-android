@@ -58,6 +58,9 @@ import io.github.zyrouge.symphony.ui.view.AlbumViewRoute
 import io.github.zyrouge.symphony.ui.view.ArtistViewRoute
 import io.github.zyrouge.symphony.utils.Logger
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.StrokeCap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SongCard(
@@ -81,11 +84,22 @@ fun SongCard(
     val isFavorite by remember(favoriteSongIds, song) {
         derivedStateOf { favoriteSongIds.contains(song.id) }
     }
+    val downloadProgress by context.symphony.cloud.tracks.downloadProgress.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        onClick = onClick
+        onClick = {
+            if (song.cloudFileId != null && downloadProgress[song.cloudFileId] == null) {
+                // Use the application-level coroutine scope for download
+                context.symphony.groove.coroutineScope.launch {
+                    context.symphony.cloud.tracks.downloadTrack(song.cloudFileId)
+                }
+            } else {
+                onClick()
+            }
+        }
     ) {
         Box(modifier = Modifier.padding(12.dp, 12.dp, 4.dp, 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -96,32 +110,58 @@ fun SongCard(
                         null,
                         modifier = Modifier
                             .size(45.dp)
-                            .clip(RoundedCornerShape(10.dp)),
+                            .clip(RoundedCornerShape(10.dp))
+                            .let { modifier ->
+                                if (song.cloudFileId != null) {
+                                    val progress = downloadProgress[song.cloudFileId]
+                                    if (progress != null) {
+                                        modifier.background(Color.Black.copy(alpha = 0.5f))
+                                    } else {
+                                        modifier
+                                    }
+                                } else {
+                                    modifier
+                                }
+                            },
                     )
+
+                    // Show download progress overlay for cloud tracks
+                    if (song.cloudFileId != null) {
+                        val progress = downloadProgress[song.cloudFileId]
+                        if (progress != null) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(45.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.size(35.dp),
+                                    strokeWidth = 2.dp,
+                                    strokeCap = StrokeCap.Round,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+
                     thumbnailLabel?.let { it ->
-                        val backgroundColor =
-                            thumbnailLabelStyle.backgroundColor(MaterialTheme.colorScheme)
-                        val contentColor =
-                            thumbnailLabelStyle.contentColor(MaterialTheme.colorScheme)
+                        val backgroundColor = thumbnailLabelStyle.backgroundColor(MaterialTheme.colorScheme)
+                        val contentColor = thumbnailLabelStyle.contentColor(MaterialTheme.colorScheme)
 
                         Box(
                             modifier = Modifier
-                                .offset(y = 8.dp)
-                                .align(Alignment.BottomCenter)
+                                .size(45.dp)
+                                .background(backgroundColor)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        backgroundColor,
-                                        RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(3.dp, 0.dp)
+                            ProvideTextStyle(
+                                MaterialTheme.typography.labelSmall.copy(color = contentColor)
                             ) {
-                                ProvideTextStyle(
-                                    MaterialTheme.typography.labelSmall.copy(
-                                        color = contentColor
-                                    )
-                                ) { it() }
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    it()
+                                }
                             }
                         }
                     }
@@ -204,8 +244,8 @@ fun SongDropdownMenu(
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
     var isDownloading by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     DropdownMenu(
         expanded = expanded,
@@ -355,23 +395,27 @@ fun SongDropdownMenu(
                 onClick = {
                     onDismissRequest()
                     isDownloading = true
-                    coroutineScope.launch {
+                    context.symphony.groove.coroutineScope.launch {
                         context.symphony.cloud.tracks.downloadTrack(song.cloudFileId!!)
                             .onSuccess {
                                 isDownloading = false
-                                Toast.makeText(
-                                    context.symphony.applicationContext,
-                                    "Download completed",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        context.symphony.applicationContext,
+                                        "Download completed",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
                             .onFailure { error ->
                                 isDownloading = false
-                                Toast.makeText(
-                                    context.symphony.applicationContext,
-                                    "Download failed: ${error.message}",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        context.symphony.applicationContext,
+                                        "Download failed: ${error.message}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
                     }
                 },

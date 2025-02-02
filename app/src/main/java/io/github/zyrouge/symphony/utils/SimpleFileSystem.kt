@@ -60,5 +60,22 @@ sealed class SimpleFileSystem(val parent: Folder?, val name: String) {
             }
             return parent.addChildFile(parts[0])
         }
+
+        fun removeChildFile(path: SimplePath) {
+            val parts = path.parts.toMutableList()
+            var current: SimpleFileSystem = this
+            for (part in parts) {
+                when (current) {
+                    is Folder -> {
+                        current = current.children[part] ?: return
+                    }
+                    else -> return
+                }
+            }
+            if (current is File) {
+                val parent = current.parent
+                parent?.children?.remove(current.name)
+            }
+        }
     }
 }

@@ -1,6 +1,7 @@
 package io.github.zyrouge.symphony.services.groove
 
 import io.github.zyrouge.symphony.Symphony
+import io.github.zyrouge.symphony.services.cloud.Cloud
 import io.github.zyrouge.symphony.services.groove.repositories.AlbumArtistRepository
 import io.github.zyrouge.symphony.services.groove.repositories.AlbumRepository
 import io.github.zyrouge.symphony.services.groove.repositories.ArtistRepository
@@ -44,6 +45,10 @@ class Groove(private val symphony: Symphony) : Symphony.Hooks {
                 async { playlist.fetch() },
             )
         }.join()
+        
+        // After local files are fetched, scan cloud storage
+        symphony.cloud.fetch(Cloud.FetchOptions())
+        symphony.cloud.tracks.scanAndIntegrateCloudTracks()
     }
 
     private suspend fun reset() {
