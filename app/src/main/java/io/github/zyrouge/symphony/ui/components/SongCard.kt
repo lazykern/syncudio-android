@@ -58,6 +58,7 @@ import io.github.zyrouge.symphony.ui.view.AlbumViewRoute
 import io.github.zyrouge.symphony.ui.view.ArtistViewRoute
 import io.github.zyrouge.symphony.utils.Logger
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.StrokeCap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -86,14 +87,23 @@ fun SongCard(
     }
     val downloadProgress by context.symphony.cloud.tracks.downloadProgress.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val uris by context.symphony.groove.exposer.urisFlow.collectAsState()
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { modifier ->
+                if (song.cloudFileId != null && uris[song.path] == null) {
+                    modifier.alpha(0.5f)
+                } else {
+                    modifier
+                }
+            },
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         onClick = {
             if (song.cloudFileId != null) {
                 // Check if the file exists locally
-                val localFile = context.symphony.groove.exposer.uris[song.path]
+                val localFile = uris[song.path]
                 Logger.debug("SongCard", "Clicked song - Path: ${song.path}, URI: ${song.uri}, Local file URI: $localFile")
                 if (localFile != null) {
                     // File exists locally, play it

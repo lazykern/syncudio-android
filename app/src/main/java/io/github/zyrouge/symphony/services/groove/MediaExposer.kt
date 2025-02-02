@@ -25,10 +25,16 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class MediaExposer(private val symphony: Symphony) {
+    private val _uris = MutableStateFlow<Map<String, Uri>>(emptyMap())
+    val urisFlow = _uris.asStateFlow()
     internal val uris = ConcurrentHashMap<String, Uri>()
     var explorer = SimpleFileSystem.Folder()
     private val _isUpdating = MutableStateFlow(false)
     val isUpdating = _isUpdating.asStateFlow()
+
+    private fun emitUrisUpdate() {
+        _uris.update { uris.toMap() }
+    }
 
     private fun emitUpdate(value: Boolean) = _isUpdating.update {
         value
@@ -125,6 +131,7 @@ class MediaExposer(private val symphony: Symphony) {
     private suspend fun scanAudioFile(cycle: ScanCycle, path: SimplePath, file: DocumentFileX) {
         val pathString = path.pathString
         uris[pathString] = file.uri
+        emitUrisUpdate()
         val lastModified = file.lastModified
 
         // Regular local file handling
@@ -164,6 +171,7 @@ class MediaExposer(private val symphony: Symphony) {
         file: DocumentFileX,
     ) {
         uris[path.pathString] = file.uri
+        emitUrisUpdate()
         explorer.addChildFile(path)
     }
 
@@ -173,6 +181,7 @@ class MediaExposer(private val symphony: Symphony) {
         file: DocumentFileX,
     ) {
         uris[path.pathString] = file.uri
+        emitUrisUpdate()
         explorer.addChildFile(path)
     }
 
