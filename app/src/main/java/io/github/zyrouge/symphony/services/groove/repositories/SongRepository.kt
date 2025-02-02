@@ -3,6 +3,7 @@ package io.github.zyrouge.symphony.services.groove.repositories
 import android.net.Uri
 import androidx.core.net.toUri
 import io.github.zyrouge.symphony.Symphony
+import io.github.zyrouge.symphony.services.cloud.CloudTrack
 import io.github.zyrouge.symphony.services.groove.Song
 import io.github.zyrouge.symphony.ui.helpers.Assets
 import io.github.zyrouge.symphony.ui.helpers.createHandyImageRequest
@@ -146,5 +147,74 @@ class SongRepository(private val symphony: Symphony) {
             Logger.error("LyricsRepository", "fetch lyrics failed", err)
         }
         return null
+    }
+
+    suspend fun integrateCloudTracks(cloudTracks: List<CloudTrack>) {
+        Logger.debug(TAG, "Starting cloud tracks integration")
+        
+        // Get all songs and create a lookup map by path
+        val songs = symphony.database.songCache.entriesPathMapped()
+        Logger.debug(TAG, "Found ${songs.size} songs in database")
+
+        // Track stats
+        var updatedCount = 0
+        var addedCount = 0
+
+        // Process each cloud track
+        cloudTracks.forEach { cloudTrack ->
+            // Look up song by localPathString (which matches Song's path format)
+            val song = songs[cloudTrack.localPathString]
+            if (song != null) {
+                // Update song with cloud information
+                val updatedSong = song.copy(
+                    cloudFileId = cloudTrack.cloudFileId,
+                    cloudPath = cloudTrack.cloudPath,
+                    provider = cloudTrack.provider
+                )
+                symphony.database.songCache.update(updatedSong)
+                updatedCount++
+                Logger.debug(TAG, "Updated song with cloud info: ${song.path}")
+            } else {
+                // Create a new Song entry for the cloud track
+                val newSong = Song(
+                    id = idGenerator.next(),
+                    title = cloudTrack.title,
+                    album = cloudTrack.album,
+                    artists = cloudTrack.artists,
+                    composers = cloudTrack.composers,
+                    albumArtists = cloudTrack.albumArtists,
+                    genres = cloudTrack.genres,
+                    trackNumber = cloudTrack.trackNumber,
+                    trackTotal = cloudTrack.trackTotal,
+                    discNumber = cloudTrack.discNumber,
+                    discTotal = cloudTrack.discTotal,
+                    date = cloudTrack.date,
+                    year = cloudTrack.year,
+                    duration = cloudTrack.duration,
+                    bitrate = cloudTrack.bitrate,
+                    samplingRate = cloudTrack.samplingRate,
+                    channels = cloudTrack.channels,
+                    encoder = cloudTrack.encoder,
+                    dateModified = cloudTrack.lastModified,
+                    size = cloudTrack.size,
+                    coverFile = null, // Cloud tracks don't have local cover files yet
+                    uri = Uri.EMPTY, // Cloud tracks don't have local URIs
+                    path = cloudTrack.localPathString,
+                    cloudFileId = cloudTrack.cloudFileId,
+                    cloudPath = cloudTrack.cloudPath,
+                    provider = cloudTrack.provider
+                )
+                symphony.database.songCache.insert(newSong)
+                onSong(newSong) // Add to cache and emit updates
+                addedCount++
+                Logger.debug(TAG, "Added new song from cloud track: ${cloudTrack.localPathString}")
+            }
+        }
+
+        Logger.debug(TAG, "Cloud tracks integration complete - Updated: $updatedCount, Added: $addedCount")
+    }
+
+    companion object {
+        private const val TAG = "SongRepository"
     }
 }

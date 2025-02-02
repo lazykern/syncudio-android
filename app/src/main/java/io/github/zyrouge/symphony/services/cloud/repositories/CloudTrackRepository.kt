@@ -266,6 +266,9 @@ class CloudTrackRepository(private val symphony: Symphony) {
             // 5. Update database
             clear() // Clear existing tracks
             insert(*integratedTracks.toTypedArray())
+
+            // 6. Integrate with songs
+            symphony.groove.song.integrateCloudTracks(integratedTracks)
             
             endUpdate()
             Result.success(integratedTracks)

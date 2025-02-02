@@ -136,13 +136,31 @@ fun SongInformationDialog(context: ViewContext, song: Song, onDismissRequest: ()
                 LongPressCopyableText(context, song.path)
             }
             InformationKeyValue(context.symphony.t.Size) {
-                LongPressCopyableText(context, "${round((song.size / 1024 / 1024).toDouble())} MB")
+                LongPressCopyableText(context, "${round(song.size.toDouble() / 1024 / 1024)} MB")
             }
             InformationKeyValue(context.symphony.t.LastModified) {
                 LongPressCopyableText(
                     context,
-                    SimpleDateFormat.getInstance().format(Date(song.dateModified * 1000)),
+                    SimpleDateFormat
+                        .getDateTimeInstance()
+                        .format(Date(song.dateModified))
                 )
+            }
+
+            // Cloud information section
+            if (song.cloudFileId != null) {
+                InformationKeyValue("Cloud Status") {
+                    LongPressCopyableText(context, "Synced")
+                }
+                InformationKeyValue("Cloud Provider") {
+                    LongPressCopyableText(context, song.provider!!)
+                }
+                InformationKeyValue("Cloud File ID") {
+                    LongPressCopyableText(context, song.cloudFileId)
+                }
+                InformationKeyValue("Cloud Path") {
+                    LongPressCopyableText(context, song.cloudPath!!)
+                }
             }
         },
         onDismissRequest = onDismissRequest,
