@@ -286,11 +286,12 @@ fun CloudStorageSettingsView(context: ViewContext) {
         AddCloudMappingDialog(
             context = context,
             onDismiss = { showAddMappingDialog = false },
-            onAdd = { localPath, cloudPath ->
+            onAdd = { localPath, cloudPath, treeUri ->
                 context.symphony.cloud.mapping.add(
                     localPath = localPath,
                     cloudPath = cloudPath,
-                    provider = "dropbox"
+                    provider = "dropbox",
+                    treeUri = treeUri
                 )
                 showAddMappingDialog = false
             }
@@ -396,10 +397,11 @@ private fun CloudMappingCard(
 private fun AddCloudMappingDialog(
     context: ViewContext,
     onDismiss: () -> Unit,
-    onAdd: suspend (localPath: String, cloudPath: String) -> Unit
+    onAdd: suspend (localPath: String, cloudPath: String, treeUri: Uri) -> Unit
 ) {
     var localPath by remember { mutableStateOf("") }
     var cloudPath by remember { mutableStateOf("") }
+    var treeUri by remember { mutableStateOf<Uri?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
     var showDropboxPicker by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -413,7 +415,10 @@ private fun AddCloudMappingDialog(
             ActivityUtils.makePersistableReadableUri(context.symphony.applicationContext, selectedUri)
             // Get the path from URI
             val path = selectedUri.path?.substringAfter("/tree/")?.replace(":", "/")
-            path?.let { localPath = "/$it" }
+            path?.let { 
+                localPath = "/$it"
+                treeUri = selectedUri
+            }
         }
     }
 
@@ -511,7 +516,7 @@ private fun AddCloudMappingDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (localPath.isNotEmpty() && cloudPath.isNotEmpty()) {
+                    if (localPath.isNotEmpty() && cloudPath.isNotEmpty() && treeUri != null) {
                         isProcessing = true
                         error = null
                         coroutineScope.launch {
@@ -519,7 +524,8 @@ private fun AddCloudMappingDialog(
                                 context.symphony.cloud.mapping.add(
                                     localPath = localPath,
                                     cloudPath = cloudPath,
-                                    provider = "dropbox"
+                                    provider = "dropbox",
+                                    treeUri = treeUri!!
                                 ).onSuccess {
                                     onDismiss()
                                 }.onFailure { err ->
@@ -533,7 +539,7 @@ private fun AddCloudMappingDialog(
                         }
                     }
                 },
-                enabled = !isProcessing && localPath.isNotEmpty() && cloudPath.isNotEmpty()
+                enabled = !isProcessing && localPath.isNotEmpty() && cloudPath.isNotEmpty() && treeUri != null
             ) {
                 if (isProcessing) {
                     CircularProgressIndicator(

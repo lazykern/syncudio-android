@@ -123,6 +123,7 @@ dependencies {
     implementation(libs.media)
     implementation(libs.okhttp3)
     implementation(libs.appcompat)
+    implementation(libs.documentfile)
     ksp(libs.room.compiler)
     implementation(libs.room.ktx)
     implementation(libs.room.runtime)

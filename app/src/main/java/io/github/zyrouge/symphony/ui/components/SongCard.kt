@@ -23,6 +23,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.CircularProgressIndicator
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ColorScheme
@@ -54,6 +57,7 @@ import io.github.zyrouge.symphony.ui.view.AlbumArtistViewRoute
 import io.github.zyrouge.symphony.ui.view.AlbumViewRoute
 import io.github.zyrouge.symphony.ui.view.ArtistViewRoute
 import io.github.zyrouge.symphony.utils.Logger
+import androidx.compose.runtime.rememberCoroutineScope
 
 @Composable
 fun SongCard(
@@ -200,6 +204,8 @@ fun SongDropdownMenu(
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    var isDownloading by remember { mutableStateOf(false) }
 
     DropdownMenu(
         expanded = expanded,
@@ -332,6 +338,47 @@ fun SongDropdownMenu(
                 }
             }
         )
+        // Add download option for cloud tracks
+        if (song.cloudFileId != null) {
+            DropdownMenuItem(
+                leadingIcon = {
+                    if (isDownloading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Filled.Download, contentDescription = "Download")
+                    }
+                },
+                text = { Text("Download") },
+                onClick = {
+                    onDismissRequest()
+                    isDownloading = true
+                    coroutineScope.launch {
+                        context.symphony.cloud.tracks.downloadTrack(song.cloudFileId!!)
+                            .onSuccess {
+                                isDownloading = false
+                                Toast.makeText(
+                                    context.symphony.applicationContext,
+                                    "Download completed",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            .onFailure { error ->
+                                isDownloading = false
+                                Toast.makeText(
+                                    context.symphony.applicationContext,
+                                    "Download failed: ${error.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                    }
+                },
+                enabled = !isDownloading
+            )
+        }
+
         DropdownMenuItem(
             leadingIcon = {
                 Icon(Icons.Filled.Info, null)

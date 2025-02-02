@@ -3,6 +3,7 @@ package io.github.zyrouge.symphony.services.cloud
 import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import android.net.Uri
 import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.utils.SimplePath
 
@@ -15,6 +16,7 @@ data class CloudFolderMapping(
     val cloudPath: String,
     val cloudFolderId: String,
     val provider: String,
+    val treeUri: Uri? = null,
 ) {
     val localSimplePath get() = SimplePath(localPath)
     val cloudSimplePath get() = SimplePath(cloudPath)

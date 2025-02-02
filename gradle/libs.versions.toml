@@ -32,6 +32,7 @@ junit-version = "1.2.1"
 espresso-core = "3.6.1"
 appcompat = "1.7.0"
 material = "1.12.0"
+documentfile = "1.0.1"
 
 [libraries]
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
@@ -64,6 +65,7 @@ dropbox-core = { group = "com.dropbox.core", name = "dropbox-core-sdk", version.
 dropbox-android = { group = "com.dropbox.core", name = "dropbox-android-sdk", version.ref = "dropbox-sdk" }
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security-crypto" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 [plugins]
 android-app = { id = "com.android.application", version.ref = "android-gradle-plugin" }

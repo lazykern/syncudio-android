@@ -15,6 +15,7 @@ import com.dropbox.core.v2.files.FileMetadata
 import me.zyrouge.symphony.metaphony.AudioMetadataParser
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import android.net.Uri
 
 class CloudMappingRepository(private val symphony: Symphony) {
     private val cache = ConcurrentHashMap<String, CloudFolderMapping>()
@@ -45,7 +46,7 @@ class CloudMappingRepository(private val symphony: Symphony) {
         }
     }
 
-    suspend fun add(localPath: String, cloudPath: String, provider: String): Result<CloudFolderMapping> {
+    suspend fun add(localPath: String, cloudPath: String, provider: String, treeUri: Uri): Result<CloudFolderMapping> {
         try {
             // Check for duplicate paths
             val existingMappings = cache.values
@@ -64,7 +65,8 @@ class CloudMappingRepository(private val symphony: Symphony) {
                 localPath = localPath,
                 cloudPath = cloudPath,
                 cloudFolderId = cloudPath,  // Using cloudPath as cloudFolderId for now
-                provider = provider
+                provider = provider,
+                treeUri = treeUri
             )
             symphony.database.cloudMappings.insert(mapping)
             cache[mapping.id] = mapping

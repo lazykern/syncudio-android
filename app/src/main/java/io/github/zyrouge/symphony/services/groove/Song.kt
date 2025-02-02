@@ -76,6 +76,7 @@ data class Song(
         }
 
     val filename get() = SimplePath(path).name
+    val hasLocalFile: Boolean get() = File(path).exists()
 
     fun createArtworkImageRequest(symphony: Symphony) =
         symphony.groove.song.createArtworkImageRequest(id)

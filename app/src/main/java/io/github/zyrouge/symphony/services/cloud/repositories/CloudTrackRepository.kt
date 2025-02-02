@@ -1,13 +1,21 @@
 package io.github.zyrouge.symphony.services.cloud.repositories
 
+import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.documentfile.provider.DocumentFile
 import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.services.cloud.CloudTrack
 import io.github.zyrouge.symphony.services.cloud.CloudTrackMetadata
+import io.github.zyrouge.symphony.services.groove.Groove
+import io.github.zyrouge.symphony.services.groove.MediaExposer
+import io.github.zyrouge.symphony.utils.DocumentFileX
 import io.github.zyrouge.symphony.utils.Logger
+import io.github.zyrouge.symphony.utils.SimplePath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -24,6 +32,9 @@ class CloudTrackRepository(private val symphony: Symphony) {
 
     private val _isUpdating = MutableStateFlow(false)
     val isUpdating = _isUpdating.asStateFlow()
+
+    private val _downloadProgress = MutableStateFlow<Map<String, Float>>(emptyMap())
+    val downloadProgress = _downloadProgress.asStateFlow()
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -279,7 +290,84 @@ class CloudTrackRepository(private val symphony: Symphony) {
         }
     }
 
+    suspend fun downloadTrack(cloudFileId: String) = withContext(Dispatchers.IO) {
+        try {
+            Logger.debug(TAG, "Starting download for track $cloudFileId")
+            val track = getByCloudFileId(cloudFileId) ?: return@withContext Result.failure(
+                Exception("Track not found: $cloudFileId")
+            )
+
+            // Get the mapping for this track
+            val mappingId = symphony.cloud.mapping.all.value.find { mappingId ->
+                val mapping = symphony.cloud.mapping.get(mappingId)
+                track.cloudPath.startsWith(mapping?.cloudPath ?: "")
+            } ?: return@withContext Result.failure(Exception("No mapping found for track"))
+
+            val mapping = symphony.cloud.mapping.get(mappingId)!!
+            if (mapping.treeUri == null) {
+                return@withContext Result.failure(Exception("No tree URI available for mapping"))
+            }
+
+            // Get the document file for the root folder
+            val rootFolder = DocumentFile.fromTreeUri(symphony.applicationContext, mapping.treeUri)
+                ?: return@withContext Result.failure(Exception("Could not access folder"))
+
+            // Create parent directories
+            val relativePath = track.localPath.removePrefix(mapping.localPath).trim('/')
+            val pathParts = relativePath.split('/')
+            var currentFolder = rootFolder
+
+            // Create all parent directories
+            for (i in 0 until pathParts.size - 1) {
+                val folderName = pathParts[i]
+                currentFolder = currentFolder.findFile(folderName)
+                    ?: currentFolder.createDirectory(folderName)
+                    ?: return@withContext Result.failure(Exception("Failed to create directory: $folderName"))
+            }
+
+            // Create or get the file
+            val fileName = pathParts.last()
+            val file = currentFolder.findFile(fileName) ?: currentFolder.createFile(
+                "audio/${fileName.substringAfterLast('.')}",
+                fileName
+            ) ?: return@withContext Result.failure(Exception("Failed to create file: $fileName"))
+
+            // Download the file
+            symphony.applicationContext.contentResolver.openOutputStream(file.uri)?.use { outputStream ->
+                symphony.dropbox.downloadFile(
+                    dropboxPath = track.cloudPath,
+                    outputStream = outputStream,
+                    progressCallback = { processed, total -> 
+                        _downloadProgress.update { current ->
+                            current + (cloudFileId to (processed.toFloat() / total))
+                        }
+                    }
+                ).onSuccess {
+                    Logger.debug(TAG, "Download completed for track $cloudFileId")
+                    _downloadProgress.update { it - cloudFileId }
+                    
+                    // Clear song cache and trigger a rescan
+                    symphony.database.songCache.clear()  // Clear song cache
+                    symphony.groove.fetch(Groove.FetchOptions())  // This will rescan media folders including the downloaded file
+                    Logger.debug(TAG, "File downloaded and media scan triggered: ${track.localPath}")
+                    return@withContext Result.success(Unit)
+                }.onFailure { error ->
+                    Logger.error(TAG, "Download failed for track $cloudFileId", error)
+                    _downloadProgress.update { it - cloudFileId }
+                    file.delete() // Clean up partial download
+                    return@withContext Result.failure(error)
+                }
+            } ?: return@withContext Result.failure(Exception("Could not open output stream"))
+
+            return@withContext Result.failure(Exception("Unknown error occurred"))
+        } catch (e: Exception) {
+            Logger.error(TAG, "Unexpected error downloading track $cloudFileId", e)
+            _downloadProgress.update { it - cloudFileId }
+            return@withContext Result.failure(e)
+        }
+    }
+
     companion object {
         private const val TAG = "CloudTrackRepository"
     }
-} 
+}

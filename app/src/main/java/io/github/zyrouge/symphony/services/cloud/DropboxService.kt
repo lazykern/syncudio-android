@@ -260,7 +260,7 @@ class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
 
     suspend fun downloadFile(
         dropboxPath: String,
-        localPath: String,
+        outputStream: java.io.OutputStream,
         progressCallback: ((Long, Long) -> Unit)? = null
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
@@ -276,14 +276,12 @@ class DropboxService(private val symphony: Symphony) : Symphony.Hooks {
             }
             val fileSize = metadata.size
 
-            Log.d(TAG, "Downloading file: $dropboxPath to $localPath (size: $fileSize bytes)")
-            FileOutputStream(localPath).use { outputStream ->
-                client.files().downloadBuilder(dropboxPath)
-                    .start()
-                    .download(outputStream) { processedBytes ->
-                        progressCallback?.invoke(processedBytes, fileSize)
-                    }
-            }
+            Log.d(TAG, "Downloading file: $dropboxPath (size: $fileSize bytes)")
+            client.files().downloadBuilder(dropboxPath)
+                .start()
+                .download(outputStream) { processedBytes ->
+                    progressCallback?.invoke(processedBytes, fileSize)
+                }
             
             Log.d(TAG, "Successfully downloaded file: $dropboxPath")
             return@withContext Result.success(Unit)
