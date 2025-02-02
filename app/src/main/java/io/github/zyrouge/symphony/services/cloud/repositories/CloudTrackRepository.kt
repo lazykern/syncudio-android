@@ -352,43 +352,69 @@ class CloudTrackRepository(private val symphony: Symphony) {
                     if (documentFile != null) {
                         val path = SimplePath(track.localPathString)
                         val parseOptions = Song.ParseOptions.create(symphony)
-                        val song = try {
+                        
+                        // First check if we already have a song with this path
+                        val existingSong = symphony.database.songCache.getByPath(track.localPathString)
+                        
+                        // Parse the new file
+                        val parsedSong = try {
                             Song.parse(path, documentFile, parseOptions)
                         } catch (e: Exception) {
                             Logger.error(TAG, "Failed to parse downloaded file metadata", e)
                             null
                         }
 
-                        if (song != null) {
-                            // Update the song with cloud information
-                            val updatedSong = song.copy(
+                        if (parsedSong != null) {
+                            // Create updated song, preserving the ID if it exists
+                            val updatedSong = parsedSong.copy(
+                                id = existingSong?.id ?: parsedSong.id,
                                 cloudFileId = track.cloudFileId,
                                 cloudPath = track.cloudPath,
-                                provider = track.provider
+                                provider = track.provider,
+                                uri = documentFile.uri,  // Set the URI to the downloaded file's URI
+                                coverFile = parsedSong.coverFile  // Preserve the cover file from parsed song
                             )
 
-                            // Remove existing song from cache if it exists
-                            symphony.database.songCache.getByPath(track.localPathString)?.let { existingSong ->
-                                symphony.database.songCache.delete(existingSong.id)
-                                // Remove from explorer
-                                symphony.groove.song.explorer.removeChildFile(SimplePath(existingSong.path))
-                            }
+                            Logger.debug(TAG, "Updating song with new URI: ${updatedSong.uri} and cover: ${updatedSong.coverFile}")
 
-                            // Update the database
-                            symphony.database.songCache.insert(updatedSong)
-                            // Notify the song repository
-                            symphony.groove.song.onSong(updatedSong)
-                            Logger.debug(TAG, "Updated song metadata: ${updatedSong.title}")
+                            // Update the database and all caches
+                            if (existingSong != null) {
+                                Logger.debug(TAG, "Updating existing song in database and caches - ID: ${updatedSong.id}")
+                                // If there's an existing cover file, remove it
+                                existingSong.coverFile?.let { oldCoverFile ->
+                                    symphony.database.artworkCache.get(oldCoverFile).delete()
+                                }
+                                
+                                symphony.database.songCache.update(updatedSong)
+                                // Update all necessary caches
+                                symphony.groove.exposer.uris[path.pathString] = documentFile.uri
+                                Logger.debug(TAG, "Calling onSong for existing song update")
+                                symphony.groove.song.onSong(updatedSong) // This will update all caches
+                            } else {
+                                Logger.debug(TAG, "Inserting new song into database and caches - ID: ${updatedSong.id}")
+                                symphony.database.songCache.insert(updatedSong)
+                                Logger.debug(TAG, "Calling onSong for new song")
+                                symphony.groove.song.onSong(updatedSong)
+                            }
+                            
+                            // Force refresh the MediaExposer for this file
+                            Logger.debug(TAG, "Forcing MediaExposer refresh for file")
+                            symphony.groove.exposer.scanSingleFile(documentFile, path)
+                            
+                            // Force artwork cache update
+                            updatedSong.coverFile?.let { coverFile ->
+                                Logger.debug(TAG, "Updating artwork cache for cover file: $coverFile")
+                                symphony.groove.song.createArtworkImageRequest(updatedSong.id).build()
+                            }
+                            
+                            Logger.debug(TAG, "Updated song metadata: ${updatedSong.title} (ID: ${updatedSong.id}, URI: ${updatedSong.uri})")
                         }
                     }
 
-                    // Reset state before scanning
-                    symphony.groove.exposer.reset()  // Reset media exposer state
-                    symphony.groove.song.reset()     // Reset song repository state
+                    // Remove this track from cloud tracks since it's now local
+                    delete(cloudFileId)
                     
-                    // Trigger a full rescan to pick up the downloaded file
-                    symphony.groove.fetch(Groove.FetchOptions())
-                    Logger.debug(TAG, "File downloaded and media scan triggered: ${track.localPath}")
+                    Logger.debug(TAG, "File downloaded and processed: ${track.localPath}")
                     return@withContext Result.success(Unit)
                 }.onFailure { error ->
                     Logger.error(TAG, "Download failed for track $cloudFileId", error)

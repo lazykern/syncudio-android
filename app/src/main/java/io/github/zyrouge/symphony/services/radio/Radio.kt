@@ -9,6 +9,10 @@ import java.util.Date
 import java.util.Timer
 
 class Radio(private val symphony: Symphony) : Symphony.Hooks {
+    companion object {
+        private const val TAG = "Radio"
+    }
+
     sealed class Events {
         sealed class Player : Events() {
             object Staged : Player()
@@ -95,10 +99,12 @@ class Radio(private val symphony: Symphony) : Symphony.Hooks {
         stopCurrentSong()
         val song = queue.getSongIdAt(options.index)?.let { symphony.groove.song.get(it) }
         if (song == null) {
+            Logger.warn(TAG, "Song not found for index ${options.index}")
             onSongFinish(SongFinishSource.Exception)
             return
         }
         try {
+            Logger.debug(TAG, "Playing song - ID: ${song.id}, Path: ${song.path}, URI: ${song.uri}")
             queue.currentSongIndex = options.index
             player = nextPlayer?.takeIf {
                 when {

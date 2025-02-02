@@ -63,14 +63,36 @@ class SongRepository(private val symphony: Symphony) {
     }
 
     internal fun onSong(song: Song) {
+        Logger.debug("SongRepository", "onSong called for song: ${song.id} (${song.title}) - Path: ${song.path}")
+        Logger.debug("SongRepository", "Current cache state - Size: ${cache.size}, All songs: ${_all.value.size}")
+        
+        // Check if song already exists
+        val existingInCache = cache[song.id]
+        val existingInAll = _all.value.contains(song.id)
+        Logger.debug("SongRepository", "Existing state - In cache: ${existingInCache != null}, In all: $existingInAll")
+
+        // Remove existing file from explorer if it exists
+        explorer.removeChildFile(SimplePath(song.path))
+        
+        // Update caches
         cache[song.id] = song
         pathCache[song.path] = song.id
+        
+        // Add new file to explorer
         explorer.addChildFile(SimplePath(song.path)).data = song.id
+        
         emitIds()
-        _all.update {
-            it + song.id
+        _all.update { current ->
+            if (!current.contains(song.id)) {
+                Logger.debug("SongRepository", "Adding song ${song.id} to _all list")
+                current + song.id
+            } else {
+                Logger.debug("SongRepository", "Song ${song.id} already in _all list")
+                current
+            }
         }
         emitCount()
+        Logger.debug("SongRepository", "After update - Cache size: ${cache.size}, All songs: ${_all.value.size}")
     }
 
     fun reset() {

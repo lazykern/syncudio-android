@@ -91,10 +91,18 @@ fun SongCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         onClick = {
-            if (song.cloudFileId != null && downloadProgress[song.cloudFileId] == null) {
-                // Use the application-level coroutine scope for download
-                context.symphony.groove.coroutineScope.launch {
-                    context.symphony.cloud.tracks.downloadTrack(song.cloudFileId)
+            if (song.cloudFileId != null) {
+                // Check if the file exists locally
+                val localFile = context.symphony.groove.exposer.uris[song.path]
+                Logger.debug("SongCard", "Clicked song - Path: ${song.path}, URI: ${song.uri}, Local file URI: $localFile")
+                if (localFile != null) {
+                    // File exists locally, play it
+                    onClick()
+                } else if (downloadProgress[song.cloudFileId] == null) {
+                    // File doesn't exist and not currently downloading, start download
+                    context.symphony.groove.coroutineScope.launch {
+                        context.symphony.cloud.tracks.downloadTrack(song.cloudFileId)
+                    }
                 }
             } else {
                 onClick()

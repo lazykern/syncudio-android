@@ -104,11 +104,17 @@ class RadioPlayer(val symphony: Symphony, val id: String, val uri: Uri) {
     fun stop() = destroy()
 
     fun destroy() {
-        state = State.Destroyed
+        if (state == State.Destroyed) return
         destroyDurationTimer()
-        symphony.groove.coroutineScope.launch {
-            unsafeMediaPlayer.stop()
+        try {
+            if (state == State.Prepared || state == State.Finished) {
+                unsafeMediaPlayer.stop()
+            }
             unsafeMediaPlayer.release()
+        } catch (err: Exception) {
+            Logger.error("RadioPlayer", "destroy failed", err)
+        } finally {
+            state = State.Destroyed
         }
     }
 

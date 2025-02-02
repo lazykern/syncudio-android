@@ -48,7 +48,6 @@ class Groove(private val symphony: Symphony) : Symphony.Hooks {
         
         // After local files are fetched, scan cloud storage
         symphony.cloud.fetch(Cloud.FetchOptions())
-        symphony.cloud.tracks.scanAndIntegrateCloudTracks()
     }
 
     private suspend fun reset() {

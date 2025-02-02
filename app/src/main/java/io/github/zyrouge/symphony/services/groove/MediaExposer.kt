@@ -242,6 +242,22 @@ class MediaExposer(private val symphony: Symphony) {
         }
     }
 
+    suspend fun scanSingleFile(file: DocumentFileX, path: SimplePath) {
+        Logger.debug("MediaExposer", "Starting scanSingleFile for path: ${path.pathString}")
+        emitUpdate(true)
+        try {
+            val cycle = ScanCycle.create(symphony)
+            Logger.debug("MediaExposer", "Created scan cycle, scanning file")
+            scanMediaFile(cycle, path, file)
+            Logger.debug("MediaExposer", "Completed scanning file: ${path.pathString}")
+        } catch (err: Exception) {
+            Logger.error("MediaExposer", "scan single file failed", err)
+        }
+        emitUpdate(false)
+        emitFinish()
+        Logger.debug("MediaExposer", "Finished scanSingleFile for path: ${path.pathString}")
+    }
+
     companion object {
         const val MIMETYPE_M3U = "audio/x-mpegurl"
     }
