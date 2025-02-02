@@ -53,15 +53,28 @@ class RadioQueue(private val symphony: Symphony) {
         index: Int? = null,
         options: Radio.PlayOptions = Radio.PlayOptions(),
     ) {
+        // Filter out non-downloaded songs
+        val availableSongs = songIds.filter { songId ->
+            val song = symphony.groove.song.get(songId)
+            song != null && (
+                // For cloud songs, check if we have a local URI
+                (song.cloudFileId != null && symphony.groove.exposer.uris[song.path] != null) ||
+                // For local songs, check main URI
+                (song.cloudFileId == null && !song.uri.toString().isBlank())
+            )
+        }
+
+        if (availableSongs.isEmpty()) return
+
         index?.let {
-            originalQueue.addAll(it, songIds)
-            currentQueue.addAll(it, songIds)
+            originalQueue.addAll(it, availableSongs)
+            currentQueue.addAll(it, availableSongs)
             if (it <= currentSongIndex) {
-                currentSongIndex += songIds.size
+                currentSongIndex += availableSongs.size
             }
         } ?: run {
-            originalQueue.addAll(songIds)
-            currentQueue.addAll(songIds)
+            originalQueue.addAll(availableSongs)
+            currentQueue.addAll(availableSongs)
         }
         afterAdd(options)
     }

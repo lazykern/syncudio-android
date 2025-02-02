@@ -104,7 +104,13 @@ class Radio(private val symphony: Symphony) : Symphony.Hooks {
             return
         }
         try {
-            Logger.debug(TAG, "Playing song - ID: ${song.id}, Path: ${song.path}, URI: ${song.uri}")
+            // For cloud songs, use local URI from exposer
+            val uri = if (song.cloudFileId != null) {
+                symphony.groove.exposer.uris[song.path] ?: song.uri
+            } else {
+                song.uri
+            }
+            Logger.debug(TAG, "Playing song - ID: ${song.id}, Path: ${song.path}, URI: $uri")
             queue.currentSongIndex = options.index
             player = nextPlayer?.takeIf {
                 when {
@@ -114,7 +120,7 @@ class Radio(private val symphony: Symphony) : Symphony.Hooks {
                         false
                     }
                 }
-            } ?: RadioPlayer(symphony, song.id, song.uri)
+            } ?: RadioPlayer(symphony, song.id, uri)
             nextPlayer = null
             player!!.setOnPreparedListener {
                 options.startPosition?.let {
@@ -171,8 +177,14 @@ class Radio(private val symphony: Symphony) : Symphony.Hooks {
             return
         }
         try {
+            // For cloud songs, use local URI from exposer
+            val uri = if (song.cloudFileId != null) {
+                symphony.groove.exposer.uris[song.path] ?: song.uri
+            } else {
+                song.uri
+            }
             nextPlayer?.destroy()
-            nextPlayer = RadioPlayer(symphony, song.id, song.uri).also {
+            nextPlayer = RadioPlayer(symphony, song.id, uri).also {
                 it.prepare()
             }
         } catch (err: Exception) {
