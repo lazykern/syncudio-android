@@ -19,7 +19,7 @@ dropbox-sdk = "7.0.0"
 security-crypto = "1.1.0-alpha06"
 datastore = "1.0.0"
 
-android-gradle-plugin = "8.7.3"
+android-gradle-plugin = "8.8.0"
 kotlin-gradle-plugin = "2.1.0"
 kotlin-serialization-plugin = "2.1.0"
 ksp-plugin = "2.1.0-1.0.29"
