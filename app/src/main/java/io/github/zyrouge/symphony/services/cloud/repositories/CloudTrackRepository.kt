@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -48,9 +49,12 @@ class CloudTrackRepository(private val symphony: Symphony) {
 
     private var metadataUpdateDebounceJob: kotlinx.coroutines.Job? = null
 
+    @OptIn(ExperimentalSerializationApi::class)
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
+        prettyPrint = true
+        prettyPrintIndent = "    "
     }
 
     private fun parseTimestamp(timestamp: String): Long {
@@ -159,15 +163,28 @@ class CloudTrackRepository(private val symphony: Symphony) {
             Logger.debug(TAG, "Starting to read cloud metadata tracks")
             
             // 1. Download metadata file
-            val content = symphony.dropbox.downloadMetadataFile()
-                ?: return@withContext Result.failure(Exception("Failed to download metadata file"))
-            Logger.debug(TAG, "Downloaded metadata file")
+            val content = try {
+                symphony.dropbox.downloadMetadataFile()
+            } catch (e: Exception) {
+                // Handle not_found error gracefully for first-time use
+                if (e.message?.contains("not_found") == true) {
+                    Logger.debug(TAG, "No existing metadata file found (not_found error), starting fresh")
+                    return@withContext Result.success(emptyList())
+                } else {
+                    Logger.error(TAG, "Failed to download metadata file", e)
+                    return@withContext Result.failure(e)
+                }
+            } ?: run {
+                Logger.debug(TAG, "Metadata file download returned null - likely first time use")
+                return@withContext Result.success(emptyList())
+            }
 
             // 2. Parse metadata JSON
             val metadataResult = parseMetadataJson(content)
             if (metadataResult.isFailure) {
-                return@withContext Result.failure(metadataResult.exceptionOrNull() 
-                    ?: Exception("Failed to parse metadata"))
+                val error = metadataResult.exceptionOrNull()
+                error?.let { Logger.error(TAG, "Failed to parse metadata", it) }
+                return@withContext Result.failure(error ?: Exception("Failed to parse metadata"))
             }
             val metadataTracks = metadataResult.getOrNull()!!
             Logger.debug(TAG, "Parsed ${metadataTracks.size} tracks from metadata")
@@ -472,17 +489,26 @@ class CloudTrackRepository(private val symphony: Symphony) {
             // 2. Try to download current metadata (may not exist on first use)
             val currentMetadata = try {
                 val currentContent = symphony.dropbox.downloadMetadataFile()
-                    ?: return@withContext Result.failure(Exception("Failed to download metadata file"))
-                val currentMetadataResult = parseMetadataJson(currentContent)
-                if (currentMetadataResult.isFailure) {
-                    return@withContext Result.failure(currentMetadataResult.exceptionOrNull()
-                        ?: Exception("Failed to parse metadata"))
+                if (currentContent == null) {
+                    Logger.debug(TAG, "Metadata file download returned null - likely first time use")
+                    emptyList()
+                } else {
+                    val currentMetadataResult = parseMetadataJson(currentContent)
+                    if (currentMetadataResult.isFailure) {
+                        currentMetadataResult.exceptionOrNull()?.let {
+                            Logger.warn(TAG, "Failed to parse existing metadata, starting fresh",
+                                it
+                            )
+                        }
+                        emptyList()
+                    } else {
+                        currentMetadataResult.getOrNull()!!
+                    }
                 }
-                currentMetadataResult.getOrNull()!!
             } catch (e: Exception) {
                 // If file not found, start with empty metadata
                 if (e.message?.contains("not_found") == true) {
-                    Logger.debug(TAG, "No existing metadata file found, starting fresh")
+                    Logger.debug(TAG, "No existing metadata file found (not_found error), starting fresh")
                     emptyList()
                 } else {
                     Logger.error(TAG, "Failed to download metadata", e)
