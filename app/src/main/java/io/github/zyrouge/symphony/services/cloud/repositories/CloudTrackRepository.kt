@@ -451,6 +451,14 @@ class CloudTrackRepository(private val symphony: Symphony) {
         }
     }
 
+    private fun hasValidMetadata(song: Song): Boolean {
+        // Check if the song has essential metadata
+        return song.title.isNotBlank() && 
+               song.duration > 0 && 
+               song.artists.isNotEmpty() &&
+               song.album != null
+    }
+
     suspend fun updateCloudMetadata() = withContext(Dispatchers.IO) {
         try {
             Logger.debug(TAG, "Starting cloud metadata update")
@@ -458,7 +466,8 @@ class CloudTrackRepository(private val symphony: Symphony) {
 
             // 1. Get all cloud songs from local database
             val cloudSongs = symphony.database.songCache.getCloudSongs()
-            Logger.debug(TAG, "Found ${cloudSongs.size} cloud songs in local database")
+                .filter { hasValidMetadata(it) } // Filter out songs without proper metadata
+            Logger.debug(TAG, "Found ${cloudSongs.size} cloud songs with valid metadata in local database")
 
             // 2. Try to download current metadata (may not exist on first use)
             val currentMetadata = try {
