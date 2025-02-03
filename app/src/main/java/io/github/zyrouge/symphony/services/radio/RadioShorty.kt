@@ -1,9 +1,14 @@
 package io.github.zyrouge.symphony.services.radio
 
 import io.github.zyrouge.symphony.Symphony
+import io.github.zyrouge.symphony.utils.Logger
 import kotlin.random.Random
 
 class RadioShorty(private val symphony: Symphony) {
+    companion object {
+        private const val TAG = "RadioShorty"
+    }
+
     fun playPause() {
         if (!symphony.radio.hasPlayer) {
             return
@@ -59,14 +64,23 @@ class RadioShorty(private val symphony: Symphony) {
         options: Radio.PlayOptions = Radio.PlayOptions(),
         shuffle: Boolean = false,
     ) {
+        Logger.debug(TAG, "Playing queue - Songs count: ${songIds.size}, Shuffle: $shuffle, Options: $options")
+        Logger.debug(TAG, "Song IDs in queue: ${songIds.joinToString(", ")}")
+        songIds.forEachIndexed { index, songId ->
+            val song = symphony.groove.song.get(songId)
+            Logger.debug(TAG, "Song at index $index - ID: $songId, Title: ${song?.title}, CloudFileId: ${song?.cloudFileId}")
+        }
+        
         symphony.radio.stop(ended = false)
         if (songIds.isEmpty()) {
             return
         }
+        val playIndex = if (shuffle) Random.nextInt(songIds.size) else options.index
+        Logger.debug(TAG, "Selected play index: $playIndex")
         symphony.radio.queue.add(
             songIds,
             options = options.run {
-                copy(index = if (shuffle) Random.nextInt(songIds.size) else options.index)
+                copy(index = playIndex)
             }
         )
         symphony.radio.queue.setShuffleMode(shuffle)

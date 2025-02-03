@@ -95,8 +95,16 @@ class Radio(private val symphony: Symphony) : Symphony.Hooks {
         val startPosition: Long? = null,
     )
 
-    fun play(options: PlayOptions) {
+    fun play(options: PlayOptions = PlayOptions()) {
+        Logger.debug(TAG, "Playing with options: $options")
+        Logger.debug(TAG, "Current queue state - Size: ${queue.currentQueue.size}, Index: ${queue.currentSongIndex}")
+        queue.currentQueue.forEachIndexed { index, songId ->
+            val song = symphony.groove.song.get(songId)
+            Logger.debug(TAG, "Queue song at index $index - ID: $songId, Title: ${song?.title}, CloudFileId: ${song?.cloudFileId}")
+        }
+
         stopCurrentSong()
+        
         val song = queue.getSongIdAt(options.index)?.let { symphony.groove.song.get(it) }
         if (song == null) {
             Logger.warn(TAG, "Song not found for index ${options.index}")
@@ -106,11 +114,13 @@ class Radio(private val symphony: Symphony) : Symphony.Hooks {
         try {
             // For cloud songs, use local URI from exposer
             val uri = if (song.cloudFileId != null) {
-                symphony.groove.exposer.uris[song.path] ?: song.uri
+                val exposerUri = symphony.groove.exposer.uris[song.path]
+                Logger.debug(TAG, "Cloud song - Path: ${song.path}, Exposer URI: $exposerUri, Default URI: ${song.uri}")
+                exposerUri ?: song.uri
             } else {
                 song.uri
             }
-            Logger.debug(TAG, "Playing song - ID: ${song.id}, Path: ${song.path}, URI: $uri")
+            Logger.debug(TAG, "Playing song - ID: ${song.id}, Title: ${song.title}, Path: ${song.path}, URI: $uri")
             queue.currentSongIndex = options.index
             player = nextPlayer?.takeIf {
                 when {
@@ -157,6 +167,10 @@ class Radio(private val symphony: Symphony) : Symphony.Hooks {
             player!!.prepare()
             prepareNextPlayer()
             onUpdate.dispatch(Events.Player.Staged)
+            // Update last played time when song starts playing
+            symphony.groove.coroutineScope.launch {
+                symphony.groove.song.updateLastPlayed(song.id)
+            }
         } catch (err: Exception) {
             Logger.warn(
                 "Radio",

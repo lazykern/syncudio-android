@@ -33,6 +33,7 @@ class SongRepository(private val symphony: Symphony) {
         YEAR,
         FILENAME,
         TRACK_NUMBER,
+        LAST_PLAYED,
     }
 
     private val cache = ConcurrentHashMap<String, Song>()
@@ -121,16 +122,15 @@ class SongRepository(private val symphony: Symphony) {
             SortBy.COMPOSER -> songIds.sortedBy {
                 get(it)?.composers?.joinToStringIfNotEmpty(sensitive)
             }
-
             SortBy.ALBUM_ARTIST -> songIds.sortedBy {
                 get(it)?.albumArtists?.joinToStringIfNotEmpty(sensitive)
             }
-
             SortBy.YEAR -> songIds.sortedBy { get(it)?.year }
             SortBy.FILENAME -> songIds.sortedBy { get(it)?.filename?.withCase(sensitive) }
             SortBy.TRACK_NUMBER -> songIds.sortedWith(
                 compareBy({ get(it)?.discNumber }, { get(it)?.trackNumber }),
             )
+            SortBy.LAST_PLAYED -> songIds.sortedBy { get(it)?.lastPlayed }
         }
         return if (reverse) sorted.reversed() else sorted
     }
@@ -234,6 +234,16 @@ class SongRepository(private val symphony: Symphony) {
         }
 
         Logger.debug(TAG, "Cloud tracks integration complete - Updated: $updatedCount, Added: $addedCount")
+    }
+
+    suspend fun updateLastPlayed(songId: String) {
+        Logger.debug(TAG, "Updating last played time for song: $songId")
+        get(songId)?.let { song ->
+            val updatedSong = song.copy(lastPlayed = System.currentTimeMillis())
+            symphony.database.songCache.update(updatedSong)
+            onSong(updatedSong)
+            Logger.debug(TAG, "Updated last played time for song: ${song.title}")
+        }
     }
 
     companion object {

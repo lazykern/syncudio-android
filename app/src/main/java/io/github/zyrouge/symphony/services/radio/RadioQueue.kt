@@ -2,8 +2,13 @@ package io.github.zyrouge.symphony.services.radio
 
 import io.github.zyrouge.symphony.Symphony
 import io.github.zyrouge.symphony.utils.concurrentListOf
+import io.github.zyrouge.symphony.utils.Logger
 
 class RadioQueue(private val symphony: Symphony) {
+    companion object {
+        private const val TAG = "RadioQueue"
+    }
+
     enum class LoopMode {
         None,
         Queue,
@@ -53,30 +58,60 @@ class RadioQueue(private val symphony: Symphony) {
         index: Int? = null,
         options: Radio.PlayOptions = Radio.PlayOptions(),
     ) {
-        // Filter out non-downloaded songs
-        val availableSongs = songIds.filter { songId ->
+        // Create a map of original indices to songs for available tracks
+        val availableSongs = mutableListOf<String>()
+        val originalToFilteredIndex = mutableMapOf<Int, Int>()
+        
+        songIds.forEachIndexed { originalIndex, songId ->
             val song = symphony.groove.song.get(songId)
-            song != null && (
+            Logger.debug(TAG, "Checking song availability - ID: $songId, Song: ${song?.title}, CloudFileId: ${song?.cloudFileId}, Path: ${song?.path}, URI: ${song?.uri}")
+            
+            if (song != null && (
                 // For cloud songs, check if we have a local URI
                 (song.cloudFileId != null && symphony.groove.exposer.uris[song.path] != null) ||
                 // For local songs, check main URI
                 (song.cloudFileId == null && !song.uri.toString().isBlank())
-            )
+            )) {
+                originalToFilteredIndex[originalIndex] = availableSongs.size
+                availableSongs.add(songId)
+            }
         }
 
+        Logger.debug(TAG, "Adding songs to queue - Original count: ${songIds.size}, Available count: ${availableSongs.size}, Index mapping: $originalToFilteredIndex")
         if (availableSongs.isEmpty()) return
 
-        index?.let {
+        // Map the requested play index to the filtered index
+        val targetPlayIndex = options.index?.let { requestedIndex ->
+            // If a specific index was requested in the play options, map it to the filtered index
+            originalToFilteredIndex[requestedIndex]
+        }
+
+        // If a specific insert index was requested, map it to the filtered index
+        val targetInsertIndex = index?.let { originalIndex ->
+            originalToFilteredIndex[originalIndex] ?: 0
+        }
+
+        targetInsertIndex?.let {
+            Logger.debug(TAG, "Adding songs at index $it - Current index: $currentSongIndex")
             originalQueue.addAll(it, availableSongs)
             currentQueue.addAll(it, availableSongs)
             if (it <= currentSongIndex) {
                 currentSongIndex += availableSongs.size
             }
         } ?: run {
+            Logger.debug(TAG, "Adding songs at end - Current index: $currentSongIndex")
             originalQueue.addAll(availableSongs)
             currentQueue.addAll(availableSongs)
         }
-        afterAdd(options)
+
+        // Update the play options with the mapped index if one was provided
+        val updatedOptions = if (targetPlayIndex != null) {
+            options.copy(index = targetPlayIndex)
+        } else {
+            options
+        }
+        
+        afterAdd(updatedOptions)
     }
 
     fun add(

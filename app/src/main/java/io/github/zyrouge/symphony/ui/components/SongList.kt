@@ -159,6 +159,7 @@ fun SongRepository.SortBy.label(context: ViewContext) = when (this) {
     SongRepository.SortBy.YEAR -> context.symphony.t.Year
     SongRepository.SortBy.FILENAME -> context.symphony.t.Filename
     SongRepository.SortBy.TRACK_NUMBER -> context.symphony.t.TrackNumber
+    SongRepository.SortBy.LAST_PLAYED -> "Last Played"
 }
 
 fun SongListType.getLastUsedSortBy(context: ViewContext) = when (this) {

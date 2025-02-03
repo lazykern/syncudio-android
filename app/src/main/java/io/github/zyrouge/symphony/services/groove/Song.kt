@@ -51,6 +51,7 @@ data class Song(
     val cloudFileId: String? = null,
     val cloudPath: String? = null,
     val provider: String? = null,
+    val lastPlayed: Long? = null,
 ) {
     data class ParseOptions(
         val symphony: Symphony,
@@ -184,6 +185,7 @@ data class Song(
                 coverFile = coverFile,
                 uri = file.uri,
                 path = path.pathString,
+                lastPlayed = null,
             )
         }
 
@@ -260,6 +262,7 @@ data class Song(
                 coverFile = coverFile,
                 uri = file.uri,
                 path = path.pathString,
+                lastPlayed = null,
             )
         }
 
