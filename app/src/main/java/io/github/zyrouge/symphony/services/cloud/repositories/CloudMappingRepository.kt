@@ -96,7 +96,7 @@ class CloudMappingRepository(private val symphony: Symphony) {
 
     fun getMappingForPath(path: SimplePath): CloudFolderMapping? {
         return cache.values.find { mapping ->
-            path.pathString.startsWith(mapping.localPath)
+            path.pathString.replaceFirst(':','/').trimStart('/').startsWith(mapping.localPath.trimStart('/'))
         }
     }
 

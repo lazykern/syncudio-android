@@ -91,6 +91,7 @@ import io.github.zyrouge.symphony.ui.view.home.GenresView
 import io.github.zyrouge.symphony.ui.view.home.PlaylistsView
 import io.github.zyrouge.symphony.ui.view.home.SongsView
 import io.github.zyrouge.symphony.ui.view.home.TreeView
+import io.github.zyrouge.symphony.ui.components.CloudSyncIndicator
 import kotlinx.serialization.Serializable
 
 enum class HomePage(
@@ -208,6 +209,7 @@ fun HomeView(context: ViewContext) {
                     }
                 },
                 actions = {
+                    CloudSyncIndicator(context)
                     IconButton(
                         content = {
                             Icon(Icons.Filled.MoreVert, null)

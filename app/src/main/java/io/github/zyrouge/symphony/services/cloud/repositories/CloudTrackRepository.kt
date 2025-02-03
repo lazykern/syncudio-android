@@ -14,15 +14,21 @@ import io.github.zyrouge.symphony.utils.DocumentFileX
 import io.github.zyrouge.symphony.utils.Logger
 import io.github.zyrouge.symphony.utils.SimplePath
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -36,6 +42,11 @@ class CloudTrackRepository(private val symphony: Symphony) {
 
     private val _downloadProgress = MutableStateFlow<Map<String, Float>>(emptyMap())
     val downloadProgress = _downloadProgress.asStateFlow()
+
+    private val _isMetadataUpdateQueued = MutableStateFlow(false)
+    val isMetadataUpdateQueued = _isMetadataUpdateQueued.asStateFlow()
+
+    private var metadataUpdateDebounceJob: kotlinx.coroutines.Job? = null
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -390,11 +401,19 @@ class CloudTrackRepository(private val symphony: Symphony) {
                                 symphony.groove.exposer.uris[path.pathString] = documentFile.uri
                                 Logger.debug(TAG, "Calling onSong for existing song update")
                                 symphony.groove.song.onSong(updatedSong) // This will update all caches
+                                
+                                // Queue metadata update instead of immediate update
+                                Logger.debug(TAG, "Queuing cloud metadata update after song update")
+                                queueMetadataUpdate()
                             } else {
                                 Logger.debug(TAG, "Inserting new song into database and caches - ID: ${updatedSong.id}")
                                 symphony.database.songCache.insert(updatedSong)
                                 Logger.debug(TAG, "Calling onSong for new song")
                                 symphony.groove.song.onSong(updatedSong)
+                                
+                                // Queue metadata update for new song
+                                Logger.debug(TAG, "Queuing cloud metadata update after new song insertion")
+                                queueMetadataUpdate()
                             }
                             
                             // Force refresh the MediaExposer for this file
@@ -429,6 +448,176 @@ class CloudTrackRepository(private val symphony: Symphony) {
             Logger.error(TAG, "Unexpected error downloading track $cloudFileId", e)
             _downloadProgress.update { it - cloudFileId }
             return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun updateCloudMetadata() = withContext(Dispatchers.IO) {
+        try {
+            Logger.debug(TAG, "Starting cloud metadata update")
+            startUpdate()
+
+            // 1. Get all cloud songs from local database
+            val cloudSongs = symphony.database.songCache.getCloudSongs()
+            Logger.debug(TAG, "Found ${cloudSongs.size} cloud songs in local database")
+
+            // 2. Try to download current metadata (may not exist on first use)
+            val currentMetadata = try {
+                val currentContent = symphony.dropbox.downloadMetadataFile()
+                    ?: return@withContext Result.failure(Exception("Failed to download metadata file"))
+                val currentMetadataResult = parseMetadataJson(currentContent)
+                if (currentMetadataResult.isFailure) {
+                    return@withContext Result.failure(currentMetadataResult.exceptionOrNull()
+                        ?: Exception("Failed to parse metadata"))
+                }
+                currentMetadataResult.getOrNull()!!
+            } catch (e: Exception) {
+                // If file not found, start with empty metadata
+                if (e.message?.contains("not_found") == true) {
+                    Logger.debug(TAG, "No existing metadata file found, starting fresh")
+                    emptyList()
+                } else {
+                    Logger.error(TAG, "Failed to download metadata", e)
+                    return@withContext Result.failure(e)
+                }
+            }
+            Logger.debug(TAG, "Working with ${currentMetadata.size} existing metadata tracks")
+
+            // 3. Create lookup map of existing metadata
+            val existingMetadataMap = currentMetadata.associateBy { it.cloudFileId }
+
+            // 4. Create updated metadata entries
+            val updatedMetadataTracks = cloudSongs.mapNotNull { song ->
+                // Get existing metadata if any
+                val existingMetadata = existingMetadataMap[song.cloudFileId]
+                
+                // If we don't have existing metadata, we need to find the mapping to construct the cloud path
+                if (existingMetadata == null) {
+                    val mapping = symphony.cloud.mapping.getMappingForPath(SimplePath(song.path)) 
+                        ?: run {
+                            Logger.warn(TAG, "No mapping found for song path: ${song.path}")
+                            return@mapNotNull null
+                        }
+                    val relativePath = song.cloudPath?.removePrefix(mapping.cloudPath)?.trimStart('/') 
+                        ?: run {
+                            Logger.warn(TAG, "Song has no cloud path: ${song.path}")
+                            return@mapNotNull null
+                        }
+                    
+                    CloudTrackMetadata(
+                        cloudFileId = song.cloudFileId!!,
+                        cloudPath = song.cloudPath,
+                        relativePath = relativePath,
+                        lastModified = song.dateModified.toString(),
+                        provider = "dropbox",  // Since we're using Dropbox as the cloud provider
+                        cloudFolderId = mapping.cloudFolderId,
+                        tags = CloudTrackMetadata.Tags(
+                            title = song.title,
+                            album = song.album,
+                            artists = song.artists.toList(),
+                            composers = song.composers.toList(),
+                            albumArtists = song.albumArtists.toList(),
+                            genres = song.genres.toList(),
+                            date = song.date?.toString(),
+                            year = song.year,
+                            duration = (song.duration / 1000).toInt(), // Convert from ms to seconds
+                            trackNo = song.trackNumber,
+                            trackOf = song.trackTotal,
+                            diskNo = song.discNumber,
+                            diskOf = song.discTotal,
+                            bitrate = song.bitrate?.toInt(),
+                            samplingRate = song.samplingRate?.toInt(),
+                            channels = song.channels,
+                            encoder = song.encoder
+                        )
+                    )
+                } else {
+                    // Use existing metadata paths but update other fields
+                    CloudTrackMetadata(
+                        cloudFileId = song.cloudFileId!!,
+                        cloudPath = existingMetadata.cloudPath,
+                        relativePath = existingMetadata.relativePath,
+                        lastModified = song.dateModified.toString(),
+                        provider = existingMetadata.provider,
+                        cloudFolderId = existingMetadata.cloudFolderId,
+                        tags = CloudTrackMetadata.Tags(
+                            title = song.title,
+                            album = song.album,
+                            artists = song.artists.toList(),
+                            composers = song.composers.toList(),
+                            albumArtists = song.albumArtists.toList(),
+                            genres = song.genres.toList(),
+                            date = song.date?.toString(),
+                            year = song.year,
+                            duration = (song.duration / 1000).toInt(), // Convert from ms to seconds
+                            trackNo = song.trackNumber,
+                            trackOf = song.trackTotal,
+                            diskNo = song.discNumber,
+                            diskOf = song.discTotal,
+                            bitrate = song.bitrate?.toInt(),
+                            samplingRate = song.samplingRate?.toInt(),
+                            channels = song.channels,
+                            encoder = song.encoder
+                        )
+                    )
+                }
+            }
+            Logger.debug(TAG, "Created ${updatedMetadataTracks.size} updated metadata entries")
+
+            // 5. Create final metadata JSON
+            val metadataJson = buildJsonObject {
+                putJsonArray("tracks") {
+                    updatedMetadataTracks.forEach { metadata ->
+                        add(buildJsonObject {
+                            put("cloud_file_id", metadata.cloudFileId)
+                            put("cloud_path", metadata.cloudPath)
+                            put("relative_path", metadata.relativePath)
+                            put("last_modified", metadata.lastModified)
+                            put("provider", metadata.provider)
+                            put("cloud_folder_id", metadata.cloudFolderId)
+                            put("tags", buildJsonObject {
+                                metadata.tags.title?.let { put("title", it) }
+                                metadata.tags.album?.let { put("album", it) }
+                                putJsonArray("artists") { metadata.tags.artists.forEach { add(it) } }
+                                putJsonArray("composers") { metadata.tags.composers.forEach { add(it) } }
+                                putJsonArray("album_artists") { metadata.tags.albumArtists.forEach { add(it) } }
+                                putJsonArray("genres") { metadata.tags.genres.forEach { add(it) } }
+                                metadata.tags.date?.let { put("date", it) }
+                                metadata.tags.year?.let { put("year", it) }
+                                put("duration", metadata.tags.duration)
+                                metadata.tags.trackNo?.let { put("track_no", it) }
+                                metadata.tags.trackOf?.let { put("track_of", it) }
+                                metadata.tags.diskNo?.let { put("disk_no", it) }
+                                metadata.tags.diskOf?.let { put("disk_of", it) }
+                                metadata.tags.bitrate?.let { put("bitrate", it) }
+                                metadata.tags.samplingRate?.let { put("sampling_rate", it) }
+                                metadata.tags.channels?.let { put("channels", it) }
+                                metadata.tags.encoder?.let { put("encoder", it) }
+                            })
+                        })
+                    }
+                }
+            }
+
+            // 6. Upload updated metadata
+            symphony.dropbox.uploadMetadataFile(metadataJson.toString())
+            Logger.debug(TAG, "Successfully uploaded updated metadata file")
+
+            endUpdate()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Logger.error(TAG, "Failed to update cloud metadata", e)
+            endUpdate()
+            Result.failure(e)
+        }
+    }
+
+    internal suspend fun queueMetadataUpdate() {
+        _isMetadataUpdateQueued.value = true
+        metadataUpdateDebounceJob?.cancel()
+        metadataUpdateDebounceJob = symphony.groove.coroutineScope.launch {
+            delay(5000) // Wait 5 seconds for more potential updates
+            updateCloudMetadata()
+            _isMetadataUpdateQueued.value = false
         }
     }
 

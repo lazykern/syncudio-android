@@ -29,4 +29,11 @@ interface SongCacheStore {
 
     @Query("SELECT * FROM songs WHERE path = :path")
     suspend fun getByPath(path: String): Song?
+
+    @Query("SELECT * FROM songs WHERE cloudFileId IS NOT NULL")
+    suspend fun getCloudSongs(): List<Song>
+
+    companion object {
+        private const val TAG = "SongCacheStore"
+    }
 }
