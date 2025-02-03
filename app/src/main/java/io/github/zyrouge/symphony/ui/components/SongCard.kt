@@ -88,6 +88,8 @@ fun SongCard(
     val downloadProgress by context.symphony.cloud.tracks.downloadProgress.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val uris by context.symphony.groove.exposer.urisFlow.collectAsState()
+    var showDownloadConfirmationDialog by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -109,10 +111,8 @@ fun SongCard(
                     // File exists locally, play it
                     onClick()
                 } else if (downloadProgress[song.cloudFileId] == null) {
-                    // File doesn't exist and not currently downloading, start download
-                    context.symphony.groove.coroutineScope.launch {
-                        context.symphony.cloud.tracks.downloadTrack(song.cloudFileId)
-                    }
+                    // File doesn't exist and not currently downloading, show download dialog
+                    showDownloadConfirmationDialog = true
                 }
             } else {
                 onClick()
@@ -249,6 +249,44 @@ fun SongCard(
             }
         }
     }
+
+    if (showDownloadConfirmationDialog) {
+        DownloadConfirmationDialog(
+            context = context,
+            song = song,
+            size = song.size,
+            onDismissRequest = {
+                showDownloadConfirmationDialog = false
+            },
+            onConfirm = {
+                showDownloadConfirmationDialog = false
+                isDownloading = true
+                context.symphony.groove.coroutineScope.launch {
+                    context.symphony.cloud.tracks.downloadTrack(song.cloudFileId!!)
+                        .onSuccess {
+                            isDownloading = false
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context.symphony.applicationContext,
+                                    "Download completed",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                        .onFailure { error ->
+                            isDownloading = false
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context.symphony.applicationContext,
+                                    "Download failed: ${error.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -263,6 +301,7 @@ fun SongDropdownMenu(
     var showInfoDialog by remember { mutableStateOf(false) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
+    var showDownloadConfirmationDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     // Check if song is available (downloaded)
@@ -420,30 +459,7 @@ fun SongDropdownMenu(
                 text = { Text("Download") },
                 onClick = {
                     onDismissRequest()
-                    isDownloading = true
-                    context.symphony.groove.coroutineScope.launch {
-                        context.symphony.cloud.tracks.downloadTrack(song.cloudFileId!!)
-                            .onSuccess {
-                                isDownloading = false
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        context.symphony.applicationContext,
-                                        "Download completed",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                            .onFailure { error ->
-                                isDownloading = false
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        context.symphony.applicationContext,
-                                        "Download failed: ${error.message}",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                    }
+                    showDownloadConfirmationDialog = true
                 },
                 enabled = !isDownloading
             )
@@ -480,6 +496,44 @@ fun SongDropdownMenu(
             songIds = listOf(song.id),
             onDismissRequest = {
                 showAddToPlaylistDialog = false
+            }
+        )
+    }
+
+    if (showDownloadConfirmationDialog) {
+        DownloadConfirmationDialog(
+            context = context,
+            song = song,
+            size = song.size,
+            onDismissRequest = {
+                showDownloadConfirmationDialog = false
+            },
+            onConfirm = {
+                showDownloadConfirmationDialog = false
+                isDownloading = true
+                context.symphony.groove.coroutineScope.launch {
+                    context.symphony.cloud.tracks.downloadTrack(song.cloudFileId!!)
+                        .onSuccess {
+                            isDownloading = false
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context.symphony.applicationContext,
+                                    "Download completed",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                        .onFailure { error ->
+                            isDownloading = false
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context.symphony.applicationContext,
+                                    "Download failed: ${error.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                }
             }
         )
     }
