@@ -1,7 +1,3 @@
-<p align="center">
-    <img src="./media/banner.png" width="100%">
-</p>
-
 <h1 align="center">Syncudio</h1>
 
 <p align="center">🎵 A fork of Symphony music player with cloud storage integration capabilities. Supports Android 9 and later.</p>
