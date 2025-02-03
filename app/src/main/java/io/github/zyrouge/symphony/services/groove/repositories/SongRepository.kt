@@ -219,8 +219,8 @@ class SongRepository(private val symphony: Symphony) {
                     encoder = cloudTrack.encoder,
                     dateModified = cloudTrack.lastModified,
                     size = cloudTrack.size,
-                    coverFile = null, // Cloud tracks don't have local cover files yet
-                    uri = Uri.EMPTY, // Cloud tracks don't have local URIs
+                    coverFile = null,
+                    uri = Uri.EMPTY,
                     path = cloudTrack.localPathString,
                     cloudFileId = cloudTrack.cloudFileId,
                     cloudPath = cloudTrack.cloudPath,

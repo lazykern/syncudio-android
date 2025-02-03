@@ -8,6 +8,7 @@ data class CloudTrackMetadata(
     val lastModified: String,
     val provider: String,
     val cloudFolderId: String,
+    val size: Long,
 ) {
     data class Tags(
         val title: String?,
@@ -26,6 +27,6 @@ data class CloudTrackMetadata(
         val bitrate: Int?,
         val samplingRate: Int?,
         val channels: Int?,
-        val encoder: String?,
+        val encoder: String?
     )
 } 

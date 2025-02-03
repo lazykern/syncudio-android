@@ -129,6 +129,7 @@ class CloudTrackRepository(private val symphony: Symphony) {
                         lastModified = track["last_modified"]?.toString()?.trim('"') ?: "",
                         provider = track["provider"]?.toString()?.trim('"') ?: "",
                         cloudFolderId = track["cloud_folder_id"]?.toString()?.trim('"') ?: "",
+                        size = track["size"]?.toString()?.trim('"')?.toLongOrNull() ?: 0,
                         tags = CloudTrackMetadata.Tags(
                             title = tags?.get("title")?.toString()?.trim('"'),
                             album = tags?.get("album")?.toString()?.trim('"'),
@@ -545,6 +546,7 @@ class CloudTrackRepository(private val symphony: Symphony) {
                         lastModified = song.dateModified.toString(),
                         provider = "dropbox",  // Since we're using Dropbox as the cloud provider
                         cloudFolderId = mapping.cloudFolderId,
+                        size = song.size,
                         tags = CloudTrackMetadata.Tags(
                             title = song.title,
                             album = song.album,
@@ -574,6 +576,7 @@ class CloudTrackRepository(private val symphony: Symphony) {
                         lastModified = song.dateModified.toString(),
                         provider = existingMetadata.provider,
                         cloudFolderId = existingMetadata.cloudFolderId,
+                        size = existingMetadata.size,
                         tags = CloudTrackMetadata.Tags(
                             title = song.title,
                             album = song.album,

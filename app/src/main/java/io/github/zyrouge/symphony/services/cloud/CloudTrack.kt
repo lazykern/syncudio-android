@@ -86,7 +86,7 @@ data class CloudTrack(
                 samplingRate = metadata.tags.samplingRate?.toLong(),
                 channels = metadata.tags.channels,
                 encoder = metadata.tags.encoder,
-                size = 0, // Will be updated when file metadata is fetched
+                size = metadata.size,
                 localPath = localPath,
                 localPathString = localPathString,
             )
@@ -97,7 +97,8 @@ data class CloudTrack(
             cloudPath: String,
             provider: String,
             lastModified: Long,
-            mapping: CloudFolderMapping
+            mapping: CloudFolderMapping,
+            size: Long
         ): CloudTrack {
             val fileName = cloudPath.substringAfterLast('/')
             val title = fileName.substringBeforeLast('.', fileName)
@@ -129,7 +130,7 @@ data class CloudTrack(
                 samplingRate = null,
                 channels = null,
                 encoder = null,
-                size = 0,
+                size = size,
                 localPath = localPath,
                 localPathString = localPathString,
             )

@@ -157,6 +157,7 @@ class CloudMappingRepository(private val symphony: Symphony) {
                             provider = mapping.provider,
                             lastModified = entry.serverModified.time,
                             mapping = mapping,
+                            size = entry.size
                         ).also {
                             Logger.debug(TAG, "Created track: id=${it.id}, title=${it.title}, local=${it.localPath}, localString=${it.localPathString}")
                         }
