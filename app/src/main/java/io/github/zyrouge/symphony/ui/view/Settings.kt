@@ -104,24 +104,19 @@ fun SettingsView(context: ViewContext, route: SettingsViewRoute) {
                     .fillMaxSize()
             ) {
                 Column(modifier = Modifier.verticalScroll(scrollState)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size((configuration.smallestScreenWidthDp * 0.25).dp)) {
-                            AsyncImage(R.drawable.ic_launcher_foreground, null)
-                        }
-                        Column {
-                            Text(AppMeta.appName, style = MaterialTheme.typography.titleMedium)
-                            if (BuildConfig.DEBUG) {
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(AppMeta.version, style = MaterialTheme.typography.labelMedium)
-                                AppMeta.latestVersion?.takeIf { AppMeta.version != it }?.let {
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Text(
-                                        context.symphony.t.NewVersionAvailableX(it),
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            color = MaterialTheme.colorScheme.primary,
-                                        ),
-                                    )
-                                }
+                    Column {
+                        Text(AppMeta.appName, style = MaterialTheme.typography.titleMedium)
+                        if (BuildConfig.DEBUG) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(AppMeta.version, style = MaterialTheme.typography.labelMedium)
+                            AppMeta.latestVersion?.takeIf { AppMeta.version != it }?.let {
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    context.symphony.t.NewVersionAvailableX(it),
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        color = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
                             }
                         }
                     }
