@@ -14,6 +14,7 @@ import io.github.zyrouge.symphony.utils.DocumentFileX
 import io.github.zyrouge.symphony.utils.Logger
 import io.github.zyrouge.symphony.utils.SimplePath
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,7 +48,7 @@ class CloudTrackRepository(private val symphony: Symphony) {
     private val _isMetadataUpdateQueued = MutableStateFlow(false)
     val isMetadataUpdateQueued = _isMetadataUpdateQueued.asStateFlow()
 
-    private var metadataUpdateDebounceJob: kotlinx.coroutines.Job? = null
+    private var metadataUpdateDebounceJob: Job? = null
 
     @OptIn(ExperimentalSerializationApi::class)
     private val json = Json {
@@ -320,7 +321,39 @@ class CloudTrackRepository(private val symphony: Symphony) {
         }
     }
 
-    suspend fun downloadTrack(cloudFileId: String) = withContext(Dispatchers.IO) {
+    suspend fun offloadTrack(song: Song) = withContext(Dispatchers.IO) {
+    try {
+        Logger.debug(TAG, "Starting offload for song: ${song.title} (${song.id})")
+        
+        // 1. Get the DocumentFile from URI
+        val documentFile = DocumentFile.fromSingleUri(symphony.applicationContext, song.uri)
+            ?: return@withContext Result.failure(Exception("Could not access file"))
+
+        // 2. Delete the local file
+        if (!documentFile.delete()) {
+            return@withContext Result.failure(Exception("Could not delete local file"))
+        }
+
+        // 3. Remove URI from MediaExposer
+        symphony.groove.exposer.uris.remove(song.path)
+
+        // 4. Update song in database with empty URI
+        val updatedSong = song.copy(uri = Uri.EMPTY)
+        symphony.database.songCache.update(updatedSong)
+        symphony.groove.song.onSong(updatedSong)
+
+        // 5. Queue metadata update
+        // queueMetadataUpdate()
+
+        Logger.debug(TAG, "Successfully offloaded song: ${song.title}")
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Logger.error(TAG, "Failed to offload song: ${song.title}", e)
+        Result.failure(e)
+    }
+}
+
+suspend fun downloadTrack(cloudFileId: String) = withContext(Dispatchers.IO) {
         try {
             Logger.debug(TAG, "Starting download for track $cloudFileId")
             val track = getByCloudFileId(cloudFileId) ?: return@withContext Result.failure(

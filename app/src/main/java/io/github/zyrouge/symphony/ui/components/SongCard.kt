@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.CircularProgressIndicator
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Card
@@ -302,7 +304,9 @@ fun SongDropdownMenu(
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
     var showDownloadConfirmationDialog by remember { mutableStateOf(false) }
+    var showOffloadConfirmationDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val uris by context.symphony.groove.exposer.urisFlow.collectAsState()
 
     // Check if song is available (downloaded)
     val isAvailable = song.let {
@@ -477,6 +481,23 @@ fun SongDropdownMenu(
                 showInfoDialog = true
             }
         )
+
+        // Add offload option for downloaded cloud tracks
+        if (song.cloudFileId != null && uris[song.path] != null) {
+            DropdownMenuItem(
+                leadingIcon = {
+                    Icon(Icons.Filled.DeleteOutline, null, modifier = Modifier.size(24.dp))
+                },
+                text = {
+                    Text("Offload")
+                },
+                onClick = {
+                    showOffloadConfirmationDialog = true
+                    onDismissRequest()
+                }
+            )
+        }
+
         trailingContent?.invoke(this, onDismissRequest)
     }
 
@@ -529,6 +550,47 @@ fun SongDropdownMenu(
                                 Toast.makeText(
                                     context.symphony.applicationContext,
                                     "Download failed: ${error.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                }
+            }
+        )
+    }
+
+    // Show offload confirmation dialog
+    if (showOffloadConfirmationDialog) {
+        OffloadConfirmationDialog(
+            context = context,
+            song = song,
+            size = song.size,
+            onDismissRequest = {
+                showOffloadConfirmationDialog = false
+            },
+            onConfirm = {
+                showOffloadConfirmationDialog = false
+                context.symphony.groove.coroutineScope.launch {
+                    context.symphony.cloud.tracks.offloadTrack(song)
+                        .onSuccess {
+                            // Remove the URI from the cache
+                            context.symphony.groove.exposer.uris.remove(song.path)
+                            // Trigger a media library rescan
+                            context.symphony.groove.exposer.fetch()
+                            
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context.symphony.applicationContext,
+                                    "Offload completed",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                        .onFailure { error ->
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context.symphony.applicationContext,
+                                    "Offload failed: ${error.message}",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }

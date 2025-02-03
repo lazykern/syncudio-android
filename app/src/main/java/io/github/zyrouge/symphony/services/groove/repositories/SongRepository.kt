@@ -67,10 +67,21 @@ class SongRepository(private val symphony: Symphony) {
         Logger.debug("SongRepository", "onSong called for song: ${song.id} (${song.title}) - Path: ${song.path}")
         Logger.debug("SongRepository", "Current cache state - Size: ${cache.size}, All songs: ${_all.value.size}")
         
-        // Check if song already exists
-        val existingInCache = cache[song.id]
-        val existingInAll = _all.value.contains(song.id)
-        Logger.debug("SongRepository", "Existing state - In cache: ${existingInCache != null}, In all: $existingInAll")
+        // For cloud tracks, check if we already have a song with the same cloudFileId
+        if (song.cloudFileId != null) {
+            val existingSong = cache.values.find { it.cloudFileId == song.cloudFileId }
+            if (existingSong != null) {
+                // Update the existing song instead of adding a new one
+                cache[existingSong.id] = song.copy(id = existingSong.id)
+                pathCache[song.path] = existingSong.id
+                explorer.removeChildFile(SimplePath(existingSong.path))
+                explorer.addChildFile(SimplePath(song.path)).data = existingSong.id
+                emitIds()
+                emitCount()
+                Logger.debug("SongRepository", "Updated existing cloud track: ${existingSong.id}")
+                return
+            }
+        }
 
         // Remove existing file from explorer if it exists
         explorer.removeChildFile(SimplePath(song.path))
