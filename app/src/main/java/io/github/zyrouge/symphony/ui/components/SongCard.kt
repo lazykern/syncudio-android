@@ -265,6 +265,12 @@ fun SongDropdownMenu(
     var isDownloading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
+    // Check if song is available (downloaded)
+    val isAvailable = song.let {
+        (it.cloudFileId != null && context.symphony.groove.exposer.uris[it.path] != null) ||
+        (it.cloudFileId == null && !it.uri.toString().isBlank())
+    }
+
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest
@@ -289,33 +295,35 @@ fun SongDropdownMenu(
                 }
             }
         )
-        DropdownMenuItem(
-            leadingIcon = {
-                Icon(Icons.AutoMirrored.Filled.PlaylistPlay, null)
-            },
-            text = {
-                Text(context.symphony.t.PlayNext)
-            },
-            onClick = {
-                onDismissRequest()
-                context.symphony.radio.queue.add(
-                    song.id,
-                    context.symphony.radio.queue.currentSongIndex + 1
-                )
-            }
-        )
-        DropdownMenuItem(
-            leadingIcon = {
-                Icon(Icons.AutoMirrored.Filled.PlaylistPlay, null)
-            },
-            text = {
-                Text(context.symphony.t.AddToQueue)
-            },
-            onClick = {
-                onDismissRequest()
-                context.symphony.radio.queue.add(song.id)
-            }
-        )
+        if (isAvailable) {
+            DropdownMenuItem(
+                leadingIcon = {
+                    Icon(Icons.AutoMirrored.Filled.PlaylistPlay, null)
+                },
+                text = {
+                    Text(context.symphony.t.PlayNext)
+                },
+                onClick = {
+                    onDismissRequest()
+                    context.symphony.radio.queue.add(
+                        song.id,
+                        context.symphony.radio.queue.currentSongIndex + 1
+                    )
+                }
+            )
+            DropdownMenuItem(
+                leadingIcon = {
+                    Icon(Icons.AutoMirrored.Filled.PlaylistPlay, null)
+                },
+                text = {
+                    Text(context.symphony.t.AddToQueue)
+                },
+                onClick = {
+                    onDismissRequest()
+                    context.symphony.radio.queue.add(song.id)
+                }
+            )
+        }
         DropdownMenuItem(
             leadingIcon = {
                 Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null)
